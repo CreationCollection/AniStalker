@@ -50,6 +50,20 @@ android {
 }
 
 dependencies {
+    val media3_version = "1.1.1"
+    val lifecycle_version = "2.6.2"
+
+    implementation("androidx.media3:media3-exoplayer:$media3_version")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3_version")
+    implementation("androidx.media3:media3-ui:$media3_version")
+
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycle_version")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_version")
+
+    implementation ("com.google.android.gms:play-services-auth:20.7.0")
+
+    implementation ("com.google.accompanist:accompanist-systemuicontroller:0.30.1")
 
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")

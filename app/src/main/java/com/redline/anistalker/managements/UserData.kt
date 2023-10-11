@@ -12,7 +12,6 @@ import com.redline.anistalker.models.MangaCard
 import com.redline.anistalker.models.MangaChapter
 import com.redline.anistalker.models.MangaDownload
 import com.redline.anistalker.models.MangaDownloadContent
-import com.redline.anistalker.models.OngoingEpisodeDownload
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
@@ -59,9 +58,9 @@ object UserData {
                             add(EpisodeDownload())
                         }
                     },
-                    ongoingContent = mutableListOf<OngoingEpisodeDownload>().apply {
+                    ongoingContent = mutableListOf<EpisodeDownload>().apply {
                         for (x in 0..4) {
-                            add(OngoingEpisodeDownload())
+                            add(EpisodeDownload())
                         }
                     }
                 ))

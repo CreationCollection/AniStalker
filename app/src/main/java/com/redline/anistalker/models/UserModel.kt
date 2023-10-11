@@ -9,13 +9,23 @@ enum class EventType(val index: Int) {
     MANGA_COMPLETE(4)
 }
 
-data class Event<T> (
-    val id: Int = 0,
-    val type: EventType = EventType.ALL,
-    val image: String = "",
-    val content: T,
-    val contentId: T
-)
+sealed class Event {
+    data class AnimeEvent (
+        val id: Int = 0,
+        val type: EventType = EventType.ALL,
+        val image: String = "",
+        val content: Int = 0,
+        val contentId: Int = 0
+    ) : Event()
+
+    data class MangaEvent (
+        val id: Int = 0,
+        val type: EventType = EventType.ALL,
+        val image: String = "",
+        val content: String = "",
+        val contentId: String = ""
+    ) : Event()
+}
 
 data class HistoryEntry (
     val contentEvent: Boolean = false,

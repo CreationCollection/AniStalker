@@ -308,6 +308,11 @@ fun ToggleSwitch(
     val _1 = selected == 0
     val _2 = !_1
 
+    val fraction by animateFloatAsState(
+        targetValue = if (_1) 1f else 0f,
+        label = "fraction"
+    )
+
     Row (
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -319,7 +324,7 @@ fun ToggleSwitch(
     ) {
         CenteredBox (
             modifier = Modifier
-                .background(if (_1) selectedBackground else bg)
+                .background(lerp(bg, selectedBackground, fraction))
                 .fillMaxHeight()
                 .padding(horizontal = 25.dp)
         ) {
@@ -339,7 +344,7 @@ fun ToggleSwitch(
         )
         CenteredBox (
             modifier = Modifier
-                .background(if (_2) selectedBackground else bg)
+                .background(lerp(selectedBackground, bg, fraction))
                 .fillMaxHeight()
                 .padding(horizontal = 25.dp)
         ) {

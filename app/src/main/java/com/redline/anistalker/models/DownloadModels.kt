@@ -15,11 +15,21 @@ data class AnimeShort(
     val relation: String = "Anime Relation"
 )
 
+data class AnimeDownloadContentInfo(
+    val series: Int = 0,
+    val episodes: Int = 0,
+    val duration: Float = 0f,
+    val size: Long = 0
+)
+
+data class EpisodeRange (val start: Int = 0, val end: Int = 0)
+
 data class EpisodeDownload(
     val id: Int = 0,
     val animeId: AnimeId = AnimeId(),
     val title: String = "Episode Title",
     val num: Int = 0,
+    val relation: String = "Season 1",
     val quality: VideoQuality = VideoQuality.HD,
     val language: AnimeTrack = AnimeTrack.ALL,
     val intro: VideoRange = VideoRange(),
@@ -30,7 +40,10 @@ data class EpisodeDownload(
 
 data class OngoingEpisodeDownload(
     val id: Int = 0,
+    val num: Int = 0,
+    val relationCode: String = "S1",
     val status: DownloadStatus = DownloadStatus.WAITING,
+    val duration: Float = 0f,
     val downloadedDuration: Float = 0f,
     val downloadedSize: Long = 0L,
     val downloadSpeed: Long = 0L,
@@ -52,7 +65,8 @@ data class MangaDownload (
     val title: String = "Manga Title",
     val image: String = "",
     val chapters: List<MangaChapter> = listOf(),
-    val downloadableChapters: List<String> = listOf()
+    val downloadableChapters: List<String> = listOf(),
+    val downloadedChapters: List<String> = listOf(),
 )
 
 data class MangaDownloadContent (

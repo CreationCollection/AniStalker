@@ -121,7 +121,20 @@ data class Anime(
     val relations: List<AnimeRelation> = listOf(),
     val isAdult: Boolean = false,
     val genres: List<String> = listOf()
-)
+) {
+    val relation: String = relations.find {
+        it.zoroId == id.zoroId
+    }?.title ?: "Main"
+
+    companion object {
+        fun getRelationCode(relation: String) {
+            val rel = relation.lowercase()
+            if (rel.contains("season"))
+                "S${rel.replace("season ", "")}"
+            else rel.uppercase()
+        }
+    }
+}
 
 data class AnimeSpotlight(
     val id: Int = 0,

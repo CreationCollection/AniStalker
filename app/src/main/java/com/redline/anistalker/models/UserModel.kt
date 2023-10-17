@@ -9,25 +9,34 @@ enum class EventType(val index: Int) {
     MANGA_COMPLETE(4)
 }
 
-sealed class Event {
-    data class AnimeEvent (
-        val id: Int = 0,
-        val type: EventType = EventType.ALL,
-        val image: String = "",
-        val content: Int = 0,
-        val contentId: Int = 0
+sealed class Event(
+    var id: Int = 0,
+    var type: EventType = EventType.ALL,
+    var image: String = "",
+    var title: String = "Event Title",
+) {
+    data class AnimeEvent(
+        var animeId: AnimeId = AnimeId(),
+        var episodeNum: Int = 0,
+        var episodeId: Int = 0,
     ) : Event()
 
-    data class MangaEvent (
-        val id: Int = 0,
-        val type: EventType = EventType.ALL,
-        val image: String = "",
-        val content: String = "",
-        val contentId: String = ""
+    data class MangaEvent(
+        var mangaId: String = "",
+        var chapterNum: Int = 0,
+        var chapterId: String = "",
     ) : Event()
+
+    val heading: String = when (type) {
+        EventType.ALL -> "General Event Triggered"
+        EventType.NEW_EPISODE -> "New Episode Released"
+        EventType.NEW_CHAPTER -> "New Chapter Released"
+        EventType.ANIME_COMPLETE -> "Anime Completed"
+        EventType.MANGA_COMPLETE -> "Manga Completed"
+    }
 }
 
-data class HistoryEntry (
+data class HistoryEntry(
     val contentEvent: Boolean = false,
     val completionEvent: Boolean = false,
     val lastContent: Int = 0

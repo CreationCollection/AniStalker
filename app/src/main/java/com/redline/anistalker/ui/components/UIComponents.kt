@@ -2,8 +2,11 @@ package com.redline.anistalker.ui.components
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,8 +30,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,13 +41,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.painter.ColorPainter
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -55,6 +61,8 @@ import com.redline.anistalker.ui.theme.md_theme_dark_background
 import com.redline.anistalker.ui.theme.md_theme_dark_outline
 import com.redline.anistalker.ui.theme.md_theme_dark_primary
 import com.redline.anistalker.ui.theme.secondary_background
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.min
 
 data class NavItem(val unselectedIcon: Int, val selectedIcon: Int, val label: String)
@@ -65,17 +73,9 @@ fun AniNavBar(
     selectedItem: Int = 0,
     onSelected: (selected: Int) -> Unit
 ) {
-    val bg =
-        if (LocalInspectionMode.current) Color(0xFF1E1E1E)
-        else secondary_background
-
-    val chipColor =
-        if (LocalInspectionMode.current) Color(0x0CFFB871)
-        else md_theme_dark_primary.copy(alpha = 12F)
-
-    val chipFg =
-        if (LocalInspectionMode.current) Color(0xFFFFB871)
-        else md_theme_dark_primary
+    val bg = secondary_background
+    val chipColor = MaterialTheme.colorScheme.primary.copy(alpha = 12F)
+    val chipFg = MaterialTheme.colorScheme.primary
 
     val duration = 600
 
@@ -297,14 +297,10 @@ fun ToggleSwitch(
     onSelected: ((selected: VideoQuality) -> Unit)? = null,
     icons: @Composable (Int) -> Int
 ) {
-    val bg =
-        if (LocalInspectionMode.current) Color(0xFF1E1E1E)
-        else secondary_background
+    val bg = secondary_background
 
-    val outline =
-        if (LocalInspectionMode.current) Color(0xFF9D8E81)
-        else md_theme_dark_outline
-    
+    val outline = MaterialTheme.colorScheme.outline
+
     val _1 = selected == 0
     val _2 = !_1
 
@@ -313,7 +309,7 @@ fun ToggleSwitch(
         label = "fraction"
     )
 
-    Row (
+    Row(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -322,11 +318,12 @@ fun ToggleSwitch(
             .height(50.dp)
             .then(modifier)
     ) {
-        CenteredBox (
+        CenteredBox(
             modifier = Modifier
                 .background(lerp(bg, selectedBackground, fraction))
                 .fillMaxHeight()
                 .padding(horizontal = 25.dp)
+                .clickable { onSelected?.let { it(VideoQuality.HD) } }
         ) {
             Image(
                 painter = awarePainterResource(icons(0)),
@@ -342,11 +339,12 @@ fun ToggleSwitch(
                 .width(1.dp),
             color = outline
         )
-        CenteredBox (
+        CenteredBox(
             modifier = Modifier
                 .background(lerp(selectedBackground, bg, fraction))
                 .fillMaxHeight()
                 .padding(horizontal = 25.dp)
+                .clickable { onSelected?.let { it(VideoQuality.UHD) } }
         ) {
             Image(
                 painter = awarePainterResource(icons(1)),
@@ -358,6 +356,56 @@ fun ToggleSwitch(
         }
     }
 }
+
+@Composable
+fun AsyncImage(
+    url: String?,
+    modifier: Modifier = Modifier,
+    overlayBrush: Brush? = null,
+    loadColor: Color = Color(0xFF1E1E1E),
+    contentDescription: String? = null,
+) {
+    var bitmapPainter by remember {
+        mutableStateOf<BitmapPainter?>(null)
+    }
+
+    LaunchedEffect(key1 = url) {
+        val bitmap: Bitmap? = withContext(Dispatchers.IO) {
+            null
+        }
+        bitmapPainter = bitmap?.let { BitmapPainter(it.asImageBitmap()) }
+    }
+
+    Box(
+        modifier = Modifier
+            .background(loadColor)
+            .then(modifier)
+            .also {
+                overlayBrush?.let { brush ->
+                    it.drawWithCache {
+                        onDrawWithContent {
+                            drawContent()
+                            drawRect(brush)
+                        }
+                    }
+                }
+            }
+    ) {
+        AnimatedVisibility(
+            visible = bitmapPainter != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.matchParentSize()
+        ) {
+            if (bitmapPainter != null) Image(
+                painter = bitmapPainter!!,
+                contentDescription = contentDescription,
+                modifier = Modifier.matchParentSize()
+            )
+        }
+    }
+}
+
 // endregion
 
 // region Previews

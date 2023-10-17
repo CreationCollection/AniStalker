@@ -64,6 +64,7 @@ import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.ui.theme.AniStalkerTheme
 import com.redline.anistalker.ui.theme.dark_background
 import com.redline.anistalker.ui.theme.secondary_background
+import com.redline.anistalker.utils.toDurationFormat
 import com.redline.anistalker.utils.toSizeFormat
 import java.lang.Float.max
 import com.redline.anistalker.models.AnimeCard as AnimeHalf
@@ -462,8 +463,8 @@ private fun AnimeDownloadCard_Details(
     val dim = Color.White.copy(alpha = .4f)
     val grey = Color.White.copy(alpha = .75f)
 
-    val size = contentInfo.sizeAsString.split(" ")
-    val duration = contentInfo.durationAsString.split(" ")
+    val size = contentInfo.size.toSizeFormat().split(" ")
+    val duration = contentInfo.duration.toDurationFormat().split(" ")
 
     Box(
         modifier = Modifier
@@ -1030,14 +1031,14 @@ fun EpisodeDownloadView(
                 Spacer(modifier = Modifier.weight(1f))
 
                 Text(
-                    text = statusInfo?.speedAsString ?: details.sizeAsString,
+                    text = statusInfo?.let { it.downloadSpeed.toSizeFormat() + "/s" } ?: details.size.toSizeFormat(),
                     color = color,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
                 Divider(modifier = Modifier.size(4.dp), color = dim)
                 Text(
-                    text = if (statusInfo != null) progressValue else details.durationString,
+                    text = if (statusInfo != null) progressValue else details.duration.toDurationFormat(),
                     color = color,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp

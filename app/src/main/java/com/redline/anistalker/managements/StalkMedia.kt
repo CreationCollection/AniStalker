@@ -3,7 +3,9 @@ package com.redline.anistalker.managements
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeCategory
 import com.redline.anistalker.models.AnimeEpisodeDetail
+import com.redline.anistalker.models.AnimeId
 import com.redline.anistalker.models.AnimeSearchFilter
+import com.redline.anistalker.models.AnimeSpotlight
 import com.redline.anistalker.models.IMediaPage
 import com.redline.anistalker.models.MangaCard
 import com.redline.anistalker.models.MangaChapter
@@ -14,16 +16,20 @@ import kotlinx.coroutines.withContext
 import com.redline.anistalker.models.Anime as AnimeFull
 import com.redline.anistalker.models.Manga as MangaFull
 
-private class MediaPage<T>(val url: String, val dummy: () -> T) : IMediaPage<T> {
+private class MediaPage<T>(val url: String, initialPage: Int = 0, val dummy: () -> T) : IMediaPage<T> {
     var hasMore: Boolean = true
-    var currentPage: Int = 0
+    var currentPage: Int = initialPage
+    var loading: Boolean = false
+    override fun isLoading(): Boolean = loading
 
     override fun page(): Int = currentPage
 
     override fun hasNextPage(): Boolean = hasMore
 
     override suspend fun nextPage(): List<T> {
+        loading = true
         delay(1000)
+        loading = false
         return mutableListOf<T>().apply {
             for (i in 1..10) {
                 add(dummy())
@@ -44,6 +50,17 @@ object StalkMedia {
 
         fun getAnimeByCategory(category: AnimeCategory): IMediaPage<AnimeCard> =
             MediaPage("") { AnimeCard() }
+
+        suspend fun getSpotlightAnime(): List<AnimeSpotlight> {
+            return withContext(Dispatchers.IO) {
+                delay(5000)
+                mutableListOf<AnimeSpotlight>().apply {
+                    for (i in 1..10) {
+                        add(AnimeSpotlight(rank = i))
+                    }
+                }
+            }
+        }
 
         suspend fun getAnimeDetail(animeId: Int): AnimeFull {
             return withContext(Dispatchers.IO) {
@@ -70,6 +87,13 @@ object StalkMedia {
                 Video()
             }
         }
+
+        suspend fun getAnimeImageList(id: AnimeId): List<String> {
+            return withContext(Dispatchers.IO) {
+                delay(2000)
+                emptyList()
+            }
+        }
     }
 
     object Manga {
@@ -80,7 +104,7 @@ object StalkMedia {
         fun getTrendingManga(): IMediaPage<MangaCard> =
             MediaPage("") { MangaCard() }
 
-        suspend fun getMangaDetail(): MangaFull {
+        suspend fun getMangaDetail(mangaId: String): MangaFull {
             return withContext(Dispatchers.IO) {
                 delay(1000)
                 MangaFull()
@@ -103,6 +127,17 @@ object StalkMedia {
                 delay(1000)
                 mutableListOf<String>().apply {
                     for (i in 1..20) {
+                        add("")
+                    }
+                }
+            }
+        }
+
+        suspend fun getMangaImages(malId: Int): List<String> {
+            return withContext(Dispatchers.IO) {
+                delay(2000)
+                mutableListOf<String>().apply {
+                    for (i in 1..10) {
                         add("")
                     }
                 }

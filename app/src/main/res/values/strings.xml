@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">AniStalker</string>
+
+    <string name="serverClientId">229458044872-kup6shghvqeafaav6upa5n1lnept802e.apps.googleusercontent.com</string>
 </resources>

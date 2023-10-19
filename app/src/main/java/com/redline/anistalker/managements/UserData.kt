@@ -17,45 +17,54 @@ import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 import kotlin.random.Random
 
 object UserData {
-    val watchlist: StateFlow<List<Watchlist>> =
-        MutableStateFlow(mutableListOf<Watchlist>().apply {
+    private val _watchlist =
+        MutableStateFlow<List<Watchlist>>(mutableListOf<Watchlist>().apply {
             for (i in 0..30) {
                 add(Watchlist())
             }
         })
+    val watchlist = _watchlist.asStateFlow()
 
-    val animeList: StateFlow<List<AnimeCard>> =
-        MutableStateFlow(mutableListOf<AnimeCard>().apply {
+    private val _animeList =
+        MutableStateFlow<List<AnimeCard>>(mutableListOf<AnimeCard>().apply {
             for (i in 0..100) {
                 add(AnimeCard())
             }
         })
+    val animeList = _animeList.asStateFlow()
 
-    val mangaList: StateFlow<List<MangaCard>> =
-        MutableStateFlow(mutableListOf<MangaCard>().apply {
+    private val _mangaList =
+        MutableStateFlow<List<MangaCard>>(mutableListOf<MangaCard>().apply {
             for (i in 0..16) {
                 add(MangaCard())
             }
         })
+    val mangaList = _mangaList.asStateFlow()
 
-    val eventList: StateFlow<List<Event>> =
-        MutableStateFlow(mutableListOf<Event>().apply {
+    private val _eventList =
+        MutableStateFlow<List<Event>>(mutableListOf<Event>().apply {
             for (i in 0..100) {
                 add(if (Random.nextBoolean()) Event.AnimeEvent() else Event.MangaEvent())
             }
         })
+    val eventList = _eventList.asStateFlow()
 
-    val animeDownload: StateFlow<List<AnimeDownload>> =
-        MutableStateFlow(mutableListOf<AnimeDownload>().apply {
+    private val _animeDownload =
+        MutableStateFlow<List<AnimeDownload>>(mutableListOf<AnimeDownload>().apply {
             for (i in 0..10) {
                 add(AnimeDownload(
-                    content = mutableListOf<EpisodeDownload>().apply {
-                        for (x in 0..6) {
-                            add(EpisodeDownload())
+                    content = mutableMapOf<Int, List<EpisodeDownload>>().apply { 
+                        for (x in 1..10) {
+                            put(x, mutableListOf<EpisodeDownload>().apply { 
+                                for (y in 1..Random.nextInt(50)) {
+                                    add(EpisodeDownload(id = y))
+                                }
+                            })
                         }
                     },
                     ongoingContent = mutableListOf<EpisodeDownload>().apply {
@@ -66,14 +75,15 @@ object UserData {
                 ))
             }
         })
+    val animeDownload = _animeDownload.asStateFlow()
 
-    val mangaDownload: StateFlow<List<MangaDownload>> =
-        MutableStateFlow(mutableListOf<MangaDownload>().apply {
+    private val _mangaDownload =
+        MutableStateFlow<List<MangaDownload>>(mutableListOf<MangaDownload>().apply {
             for (i in 0..6) {
                 add(
                     MangaDownload(
                         chapters = mutableListOf<MangaChapter>().apply {
-                            for (i in 0..10) {
+                            for (x in 0..10) {
                                 add(MangaChapter())
                             }
                         }
@@ -81,20 +91,18 @@ object UserData {
                 )
             }
         })
-
-    fun getWatchlistFlow(watchId: Int): StateFlow<Watchlist> {
-        return MutableStateFlow(Watchlist())
-    }
-
-    fun releaseWatchlistFlow(flow: StateFlow<Watchlist>) {
-    }
+    val mangaDownload = _mangaDownload.asStateFlow()
 
     fun getCurrentWatchAnime(): StateFlow<Anime> {
         return MutableStateFlow(Anime())
     }
 
-    fun getAnimeHistory(): StateFlow<HistoryEntry> {
-        return MutableStateFlow(HistoryEntry())
+    fun getHistoryEntry(animeId: Int): HistoryEntry {
+        return HistoryEntry()
+    }
+
+    fun getHistoryEntry(mangaId: String): HistoryEntry {
+        return HistoryEntry()
     }
 
     // Modifiers
@@ -180,7 +188,12 @@ object UserData {
         return result
     }
 
-    fun addAnimeDownload(animeId: Int, epId: Int, quality: VideoQuality, track: AnimeTrack): AniResult<EpisodeDownload> {
+    fun addAnimeDownload(
+        animeId: Int,
+        epId: Int,
+        quality: VideoQuality,
+        track: AnimeTrack
+    ): AniResult<EpisodeDownload> {
         val result = AniResult<EpisodeDownload>()
         Thread {
             try {
@@ -252,7 +265,10 @@ object UserData {
         return result
     }
 
-    fun addChapterDownloads(mangaId: String, chapterId: List<String>): AniResult<List<MangaDownloadContent>> {
+    fun addChapterDownloads(
+        mangaId: String,
+        chapterId: List<String>
+    ): AniResult<List<MangaDownloadContent>> {
         val result = AniResult<List<MangaDownloadContent>>()
         Thread {
             try {
@@ -268,7 +284,10 @@ object UserData {
         return result
     }
 
-    fun removeChapterDownloads(mangaId: String, chapterId: List<String>): AniResult<List<MangaDownloadContent>> {
+    fun removeChapterDownloads(
+        mangaId: String,
+        chapterId: List<String>
+    ): AniResult<List<MangaDownloadContent>> {
         val result = AniResult<List<MangaDownloadContent>>()
         Thread {
             try {
@@ -284,7 +303,19 @@ object UserData {
         return result
     }
 
-    fun updateHistory(history: HistoryEntry): AniResult<HistoryEntry> {
+    fun updateHistory(animeId: Int, history: HistoryEntry): AniResult<HistoryEntry> {
+        val result = AniResult<HistoryEntry>()
+        Thread {
+            try {
+                Thread.sleep(1000)
+            } catch (_: Exception) {
+            }
+            result.pass(HistoryEntry())
+        }.start()
+        return result
+    }
+
+    fun updateHistory(mangaId: String, history: HistoryEntry): AniResult<HistoryEntry> {
         val result = AniResult<HistoryEntry>()
         Thread {
             try {

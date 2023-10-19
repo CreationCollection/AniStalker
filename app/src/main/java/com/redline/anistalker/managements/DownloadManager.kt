@@ -1,89 +1,55 @@
 package com.redline.anistalker.managements
 
+import android.annotation.SuppressLint
+import android.content.Context
+import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.EpisodeDownload
 import com.redline.anistalker.models.MangaDownload
 import com.redline.anistalker.models.MangaDownloadContent
 import com.redline.anistalker.models.OngoingEpisodeDownload
+import com.redline.anistalker.models.VideoQuality
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+@SuppressLint("StaticFieldLeak")
 object DownloadManager {
-    init {
+    private lateinit var context: Context
 
+    fun initialize(context: Context) {
+        DownloadManager.context = context.applicationContext
     }
 
     object Anime {
 
-        private val _animeDownloads: MutableStateFlow<List<Int>> = MutableStateFlow(listOf())
-        val animeDownloads = _animeDownloads.asStateFlow()
+        private val contentMap = mutableMapOf<Int, MutableStateFlow<List<EpisodeDownload>>>()
+        private val ongoingContent: MutableMap<Int, MutableStateFlow<List<OngoingEpisodeDownload>>> = mutableMapOf()
 
-        private val contents: MutableMap<Int, MutableStateFlow<List<Int>>> = mutableMapOf()
-        private val contentDetail: MutableMap<Int, EpisodeDownload> = mutableMapOf()
+        val animeDownloads = UserData.animeDownload
 
-        private val ongoingContent: MutableMap<Int, MutableStateFlow<List<Int>>> = mutableMapOf()
-        private val ongoingContentDetails: MutableMap<Int, MutableStateFlow<OngoingEpisodeDownload>> =
-            mutableMapOf()
-
-        fun getContents(animeDID: Int): StateFlow<List<Int>>? {
-            return contents[animeDID]
+        fun getContent(animeDID: Int): StateFlow<List<EpisodeDownload>>? {
+            return contentMap[animeDID]
         }
 
-        fun getContentDetail(epId: Int): EpisodeDownload? {
-            return contentDetail[epId]
-        }
-
-        fun getOngoingContents(animeDID: Int): StateFlow<List<Int>>? {
+        fun getOngoingDownloads(animeDID: Int): StateFlow<List<OngoingEpisodeDownload>>? {
             return ongoingContent[animeDID]
         }
 
-        fun getOngoingContentDetail(epId: Int): StateFlow<OngoingEpisodeDownload>? {
-            return ongoingContentDetails[epId]
-        }
+        fun download(animeId: Int, epId: List<Int>, quality: VideoQuality = VideoQuality.UHD, track: AnimeTrack = AnimeTrack.SUB) {
 
-        fun Download(animeId: Int, epId: Int) {
-            val items: MutableList<Int> = mutableListOf<Int>().apply {
-                addAll(_animeDownloads.value)
-                add(animeId)
-            }
-            _animeDownloads.apply {
-                value = mutableListOf<Int>().apply {
-                    addAll(value)
-                    add(animeId)
-                }
-            }
-
-            val contentFlow = contents[animeId] ?: MutableStateFlow(listOf())
-            if (contents[animeId] == null)
-                contents[animeId] = contentFlow
-
-            contentFlow.apply {
-                value = mutableListOf<Int>().apply {
-                    addAll(value)
-                    add(epId)
-                }
-            }
-
-            contentDetail[epId] = EpisodeDownload(id = epId)
         }
 
         fun cancel(epId: Int) {
-            ongoingContentDetails[epId]?.apply {
-                value = value.copy(id = epId, status = DownloadStatus.CANCELLED)
-            }
+
         }
 
         fun pause(epId: Int) {
-            ongoingContentDetails[epId]?.apply {
-                value = value.copy(id = epId, status = DownloadStatus.PAUSED)
-            }
+
         }
 
         fun resume(epId: Int) {
-            ongoingContentDetails[epId]?.apply {
-                value = value.copy(id = epId, status = DownloadStatus.WAITING)
-            }
+
         }
 
         fun restart(epId: Int) {
@@ -91,73 +57,35 @@ object DownloadManager {
         }
 
         fun cancelAll() {
-            ongoingContentDetails.values.forEach {
-                it.value =
-                    it.value.copy(id = it.value.id, status = DownloadStatus.CANCELLED)
-            }
+
         }
 
         fun cancelAll(animeId: Int) {
-            ongoingContent[animeId]?.run {
-                value.forEach {
-                    ongoingContentDetails[it]?.run {
-                        value = value.copy(id = it, status = DownloadStatus.CANCELLED)
-                    }
-                }
-            }
+
         }
 
         fun pauseAll() {
-            ongoingContentDetails.values.forEach {
-                it.value = it.value.copy(id = it.value.id, status = DownloadStatus.PAUSED)
-            }
+
         }
 
         fun pauseAll(animeId: Int) {
-            ongoingContent[animeId]?.run {
-                value.forEach {
-                    ongoingContentDetails[it]?.run {
-                        value = value.copy(id = it, status = DownloadStatus.PAUSED)
-                    }
-                }
-            }
+
         }
 
         fun resumeAll() {
-            ongoingContentDetails.values.forEach {
-                it.value = it.value.copy(id = it.value.id, status = DownloadStatus.WAITING)
-            }
+
         }
 
         fun resumeAll(animeId: Int) {
-            ongoingContent[animeId]?.run {
-                value.forEach {
-                    ongoingContentDetails[it]?.run {
-                        value = value.copy(id = it, status = DownloadStatus.WAITING)
-                    }
-                }
-            }
+
         }
 
         fun removeEpisode(animeId: Int, epId: Int) {
-            contentDetail.remove(epId)
-            contents[animeId]?.run {
-                value = value.filter {
-                    it != epId
-                }
-            }
 
-            if (contents[animeId]?.value?.isEmpty() == true)
-                removeAnime(animeId)
         }
 
         fun removeAnime(animeId: Int) {
-            _animeDownloads.run {
-                value = value.filter {
-                    it != animeId
-                }
-            }
-            contents.remove(animeId)
+
         }
     }
 

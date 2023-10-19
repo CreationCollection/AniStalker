@@ -52,12 +52,13 @@ data class OngoingEpisodeDownload(
 data class AnimeDownload (
     val dId: Int = 0,
     val title: String = "Anime Download Title",
-    val images: List<String> = listOf(),
+    val images: List<String> = emptyList(),
     val episodes: AnimeEpisode = AnimeEpisode(),
     val year: Int = 0,
-    val anime: List<AnimeShort> = listOf(),
-    val content: List<EpisodeDownload> = listOf(),
-    val ongoingContent: List<EpisodeDownload> = listOf()
+    val anime: List<AnimeShort> = emptyList(),
+    val downloadStats: AnimeDownloadContentInfo = AnimeDownloadContentInfo(),
+    val content: Map<Int, List<EpisodeDownload>> = emptyMap(),
+    val ongoingContent: List<EpisodeDownload> = emptyList()
 )
 
 data class MangaDownload (

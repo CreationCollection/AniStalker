@@ -159,7 +159,7 @@ data class Watchlist (
     val privacy: WatchlistPrivacy = WatchlistPrivacy.PRIVATE,
     val owner: String = "Owner here",
     val provider: String = "Provider here",
-    val series: Int = 0,
+    val series: List<Int> = emptyList(),
     val following: Int = 0
 )
 
@@ -171,6 +171,7 @@ data class AnimeSearchFilter(
 )
 
 interface IMediaPage<T> {
+    fun isLoading(): Boolean
     fun page(): Int
     fun hasNextPage(): Boolean
     suspend fun nextPage(): List<T>

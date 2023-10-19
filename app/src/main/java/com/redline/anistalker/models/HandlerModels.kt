@@ -4,6 +4,8 @@ enum class AniErrorCode(val index: Int) {
     UNKNOWN(0),
     NOT_FOUND(-1),
     CONNECTION_ERROR(-2),
+    INVALID_VALUE(-3),
+    INVALID_TOKEN(-4)
 }
 
 class AniError : Exception {
@@ -22,6 +24,8 @@ class AniError : Exception {
             return when (errorCode) {
                 AniErrorCode.CONNECTION_ERROR -> "Connection Error"
                 AniErrorCode.NOT_FOUND -> "Source Not Found!"
+                AniErrorCode.INVALID_VALUE -> "Invalid Value is passed!"
+                AniErrorCode.INVALID_TOKEN -> "Provided Token is not valid"
                 else -> "Unknown Error!"
             }
         }
@@ -37,12 +41,14 @@ class AniResult<T> {
     var error: AniError? = null
         private set
 
-    fun then(callBack: (T) -> Unit) {
+    fun then(callBack: (T) -> Unit): AniResult<T> {
         onResult = callBack
+        return this
     }
 
-    fun catch(callBack: (AniError) -> Unit) {
+    fun catch(callBack: (AniError) -> Unit): AniResult<T> {
         onError = callBack
+        return this
     }
 
     fun pass(value: T) {

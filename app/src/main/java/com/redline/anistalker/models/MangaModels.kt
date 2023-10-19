@@ -9,6 +9,8 @@ data class MangaCard(
 
 data class Manga (
     val id: String = "",
+    val aniListId: Int = 0,
+    val malId: Int = 0,
     val title: String = "Manga Title Here",
     val chapters: Int? = 0,
     val coverId: String = "",
@@ -23,6 +25,7 @@ data class Manga (
 data class MangaChapter(
     val id: String = "",
     val mangaId: String = "",
+    val mangaTitle: String = "",
     val title: String = "Chapter Title here",
     val num: Int = 0,
 )

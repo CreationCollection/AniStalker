@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.google.common.primitives.Floats.min
 import com.redline.anistalker.R
 import com.redline.anistalker.models.AnimeCard
-import com.redline.anistalker.models.AnimeDownloadContentInfo
+import com.redline.anistalker.models.AnimeDownload
 import com.redline.anistalker.models.AnimeEpisodeDetail
 import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.EpisodeDownload
@@ -67,6 +67,7 @@ import com.redline.anistalker.ui.theme.secondary_background
 import com.redline.anistalker.utils.toDurationFormat
 import com.redline.anistalker.utils.toSizeFormat
 import java.lang.Float.max
+import kotlin.random.Random
 import com.redline.anistalker.models.AnimeCard as AnimeHalf
 import com.redline.anistalker.models.AnimeStatus as AnimeStatusModel
 
@@ -454,8 +455,7 @@ fun WatchlistCard(
 
 @Composable
 private fun AnimeDownloadCard_Details(
-    details: AnimeCard,
-    contentInfo: AnimeDownloadContentInfo,
+    details: AnimeDownload,
     onExpandContent: () -> Unit,
     onClick: () -> Unit,
 ) {
@@ -463,8 +463,12 @@ private fun AnimeDownloadCard_Details(
     val dim = Color.White.copy(alpha = .4f)
     val grey = Color.White.copy(alpha = .75f)
 
-    val size = contentInfo.size.toSizeFormat().split(" ")
-    val duration = contentInfo.duration.toDurationFormat().split(" ")
+    val size = details.downloadStats.size.toSizeFormat().split(" ")
+    val duration = details.downloadStats.duration.toDurationFormat().split(" ")
+
+    val image = remember(details) {
+        details.images[Random.nextInt(details.images.size)]
+    }
 
     Box(
         modifier = Modifier
@@ -473,7 +477,7 @@ private fun AnimeDownloadCard_Details(
             .clickable { onClick() }
     ) {
         AsyncImage(
-            url = details.image,
+            url = image,
             loadColor = dark_background,
             overlayBrush = SolidColor(Color.Black.copy(alpha = .9f)),
             modifier = Modifier.fillMaxSize()
@@ -489,7 +493,7 @@ private fun AnimeDownloadCard_Details(
                     .weight(1f)
             ) {
                 Text(
-                    text = details.name.english,
+                    text = details.title,
                     color = primary,
                     fontWeight = FontWeight.Bold,
                 )
@@ -498,10 +502,6 @@ private fun AnimeDownloadCard_Details(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     BigEpisodeTail(details.episodes)
-                    Divider(modifier = Modifier.size(4.dp), color = dim)
-                    AnimeStatus(
-                        isAiring = details.status == AnimeStatusModel.AIRING, type = details.type
-                    )
                     Divider(modifier = Modifier.size(4.dp), color = dim)
                     Text(
                         text = details.year.toString(),
@@ -515,7 +515,7 @@ private fun AnimeDownloadCard_Details(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = contentInfo.series.toString(),
+                            text = details.downloadStats.series.toString(),
                             color = primary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
@@ -530,7 +530,7 @@ private fun AnimeDownloadCard_Details(
                     Divider(modifier = Modifier.size(4.dp), color = dim)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = contentInfo.episodes.toString(),
+                            text = details.downloadStats.episodes.toString(),
                             color = primary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
@@ -810,11 +810,10 @@ private fun AnimeDownloadCard_Content(
 
 @Composable
 fun AnimeDownloadCard(
-    animeInfo: AnimeCard,
-    progress: Float = 0f,
-    content: Map<String, List<EpisodeRange>>,
-    contentInfo: AnimeDownloadContentInfo,
+    animeInfo: AnimeDownload,
+    contentMap: Map<String, List<EpisodeRange>>,
     ongoingDownloads: List<OngoingEpisodeDownload>,
+    progress: Float = 0f,
     showContent: Boolean = false,
     onExpandContent: (() -> Unit)? = null,
     onPauseAll: (() -> Unit)? = null,
@@ -839,9 +838,8 @@ fun AnimeDownloadCard(
     ) {
         AnimeDownloadCard_Details(
             details = animeInfo,
-            contentInfo = contentInfo,
             onExpandContent = { onExpandContent?.let { it() } }
-        ) { onClick(animeInfo.id) }
+        ) { onClick(animeInfo.dId) }
 
         if (ongoingDownloads.isNotEmpty()) {
             Divider(color = outline)
@@ -856,7 +854,7 @@ fun AnimeDownloadCard(
 
         AnimatedVisibility(visible = showContent) {
             Divider(color = outline)
-            AnimeDownloadCard_Content(content = content) { start -> onContentClick?.let { it(start) } }
+            AnimeDownloadCard_Content(content = contentMap) { start -> onContentClick?.let { it(start) } }
         }
     }
 }
@@ -1084,7 +1082,7 @@ fun MediaEventView(
 
     val heading = event.heading
     val title = event.title
-    var contentNum: Int = 0
+    var contentNum = 0
     val content = when (event) {
         is Event.AnimeEvent -> {
             contentNum = event.episodeNum
@@ -1255,10 +1253,24 @@ private fun P_WatchlistSimmer() {
 private fun P_AnimeDownloadCard_ProgressOnly() {
     AniStalkerTheme {
         AnimeDownloadCard(
-            animeInfo = AnimeCard(),
-            content = mapOf(),
-            contentInfo = AnimeDownloadContentInfo(),
+            animeInfo = AnimeDownload(),
+            contentMap = mutableMapOf(
+                "Season 1" to listOf(
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                ),
+                "Season 1" to listOf(
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                )
+            ),
             ongoingDownloads = listOf(
+                OngoingEpisodeDownload(),
+                OngoingEpisodeDownload(),
                 OngoingEpisodeDownload(),
                 OngoingEpisodeDownload(),
                 OngoingEpisodeDownload(),
@@ -1273,20 +1285,21 @@ private fun P_AnimeDownloadCard_ProgressOnly() {
 private fun P_AnimeDownloadCard_OnlyContent() {
     AniStalkerTheme {
         AnimeDownloadCard(
-            animeInfo = AnimeCard(),
-            content = mapOf(
+            animeInfo = AnimeDownload(),
+            contentMap = mutableMapOf(
                 "Season 1" to listOf(
-                    EpisodeRange(0, 10),
-                    EpisodeRange(15, 20),
-                    EpisodeRange(30, 40),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
                 ),
-                "Season 2" to listOf(
-                    EpisodeRange(0, 10),
-                    EpisodeRange(15, 20),
-                    EpisodeRange(30, 40),
+                "Season 1" to listOf(
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
                 )
             ),
-            contentInfo = AnimeDownloadContentInfo(),
             ongoingDownloads = listOf(
             ),
             showContent = true,
@@ -1299,20 +1312,21 @@ private fun P_AnimeDownloadCard_OnlyContent() {
 private fun P_AnimeDownloadCard_AllIn() {
     AniStalkerTheme {
         AnimeDownloadCard(
-            animeInfo = AnimeCard(),
-            content = mapOf(
+            animeInfo = AnimeDownload(),
+            contentMap = mutableMapOf(
                 "Season 1" to listOf(
-                    EpisodeRange(0, 10),
-                    EpisodeRange(15, 20),
-                    EpisodeRange(30, 40),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
                 ),
-                "Season 2" to listOf(
-                    EpisodeRange(0, 10),
-                    EpisodeRange(15, 20),
-                    EpisodeRange(30, 40),
+                "Season 1" to listOf(
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
+                    EpisodeRange(),
                 )
             ),
-            contentInfo = AnimeDownloadContentInfo(),
             ongoingDownloads = listOf(
                 OngoingEpisodeDownload(duration = 1f, downloadedDuration = .5f),
                 OngoingEpisodeDownload(

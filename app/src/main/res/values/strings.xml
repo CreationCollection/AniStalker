@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">AniStalker</string>
 
-    <string name="serverClientId">229458044872-kup6shghvqeafaav6upa5n1lnept802e.apps.googleusercontent.com</string>
+    <string name="serverClientId">351429526556-6nosgfhh41to1a8iir7vmc7126aeb0nb.apps.googleusercontent.com</string>
+    <string name="title_activity_auth_screen">AuthScreen</string>
+    <string name="title_activity_main">MainActivity</string>
 </resources>

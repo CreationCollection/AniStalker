@@ -1,40 +1,36 @@
 package com.redline.anistalker.models
 
-enum class AniErrorCode(val index: Int) {
-    UNKNOWN(0),
-    NOT_FOUND(-1),
-    CONNECTION_ERROR(-2),
-    INVALID_VALUE(-3),
-    INVALID_TOKEN(-4)
+enum class AniErrorCode(val index: Int, val message: String) {
+    ONE_TAP_REJECTED(3, "OneTap signIn Rejected"),
+    GOOGLE_SIGNIN_REJECTED(2, "Google SignIn Rejected"),
+    REJECTED(1, "Request Rejected"),
+    UNKNOWN(0, "Unknown Error"),
+    NOT_FOUND(-1, "Not Found Error"),
+    CONNECTION_ERROR(-2, "Unable to establish connection"),
+    SLOW_NETWORK_ERROR(-3, "Slow Network Speed Error"),
+    SERVER_ERROR(-4, "Unexpected Error from Server!"),
+    INVALID_VALUE(-30, "Provided Value is Invalid"),
+    INVALID_TOKEN(-40, "Provided Token is Invalid"),
+    ONE_TAP_ERROR(-50, "OneTap error"),
+    GOOGLE_SIGNIN_ERROR(-60, "Google SignIn Error")
 }
 
 class AniError : Exception {
     var errorCode: AniErrorCode = AniErrorCode.UNKNOWN
         private set
 
-    constructor(errorCode: AniErrorCode): super(generateMessage(errorCode)) {
+    constructor(errorCode: AniErrorCode): super(errorCode.message) {
         this.errorCode = errorCode
     }
     constructor(errorCode: AniErrorCode, message: String): super(message) {
         this.errorCode = errorCode
     }
-
-    companion object {
-        fun generateMessage(errorCode: AniErrorCode): String {
-            return when (errorCode) {
-                AniErrorCode.CONNECTION_ERROR -> "Connection Error"
-                AniErrorCode.NOT_FOUND -> "Source Not Found!"
-                AniErrorCode.INVALID_VALUE -> "Invalid Value is passed!"
-                AniErrorCode.INVALID_TOKEN -> "Provided Token is not valid"
-                else -> "Unknown Error!"
-            }
-        }
-    }
 }
 
 class AniResult<T> {
-    private var onResult: ((T) -> Unit)? = null
-    private var onError: ((AniError) -> Unit)? = null
+    private val onResult: MutableList<(T) -> Unit> = mutableListOf()
+    private val onError: MutableList<(AniError) -> Unit> = mutableListOf()
+    private val onFinal: MutableList<AniResult<T>.() -> Unit> = mutableListOf()
 
     var result: T? = null
         private set
@@ -42,22 +38,30 @@ class AniResult<T> {
         private set
 
     fun then(callBack: (T) -> Unit): AniResult<T> {
-        onResult = callBack
+        if (result != null) callBack(result!!)
+        else onResult.add(callBack)
         return this
     }
 
     fun catch(callBack: (AniError) -> Unit): AniResult<T> {
-        onError = callBack
+        if (error != null) callBack(error!!)
+        else onError.add(callBack)
+        return this
+    }
+
+    fun finally(callBack: AniResult<T>.() -> Unit): AniResult<T> {
+        if (result != null || error != null) callBack()
+        else onFinal.add(callBack)
         return this
     }
 
     fun pass(value: T) {
         result = value
-        onResult?.let { it(value) }
+        onResult.forEach { it(value) }
     }
 
     fun reject(value: AniError) {
         error = value
-        onError?.let { it(value) }
+        onError.forEach { it(value) }
     }
 }

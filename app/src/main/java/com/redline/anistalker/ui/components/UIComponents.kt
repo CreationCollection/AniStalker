@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,11 +38,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -53,10 +56,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.redline.anistalker.R
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.ui.theme.AniStalkerTheme
+import com.redline.anistalker.ui.theme.aniStalkerColorScheme
 import com.redline.anistalker.ui.theme.md_theme_dark_background
 import com.redline.anistalker.ui.theme.md_theme_dark_outline
 import com.redline.anistalker.ui.theme.md_theme_dark_primary
@@ -74,15 +79,17 @@ fun AniNavBar(
     onSelected: (selected: Int) -> Unit
 ) {
     val bg = secondary_background
-    val chipColor = MaterialTheme.colorScheme.primary.copy(alpha = 12F)
+    val chipColor = MaterialTheme.colorScheme.primary.copy(alpha = .12f)
     val chipFg = MaterialTheme.colorScheme.primary
 
-    val duration = 600
+    val shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)
 
     Box(
         modifier = Modifier
+            .border(.5.dp, Color.White.copy(alpha = .5f), shape)
+            .clip(shape)
+            .shadow(2.dp, shape = shape, ambientColor = aniStalkerColorScheme.background)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
             .background(bg)
             .navigationBarsPadding()
     ) {
@@ -92,9 +99,9 @@ fun AniNavBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(70.dp)
-                .padding(horizontal = 30.dp)
+                .padding(horizontal = 20.dp)
         ) {
-            for (i in 0 until min(5, items.size)) {
+            repeat(items.size) { i ->
                 val item = items[i]
                 val active = selectedItem == i
 
@@ -117,10 +124,10 @@ fun AniNavBar(
                     modifier = Modifier
                         .clip(RoundedCornerShape(40.dp))
                         .background(bgColor)
-                        .padding(horizontal = 20.dp, vertical = 12.dp)
                         .clickable {
                             onSelected(i)
                         }
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
                     Image(
                         painter = icon,
@@ -133,7 +140,7 @@ fun AniNavBar(
                         Text(
                             text = item.label,
                             color = fgColor,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
                             maxLines = 1,
                             modifier = Modifier
                                 .padding(start = 15.dp)
@@ -148,30 +155,28 @@ fun AniNavBar(
 @Composable
 fun DropDownMenu(
     label: String,
-    valueList: Array<String>,
+    valueList: List<String>,
     modifier: Modifier = Modifier,
     title: String = label,
-    showMenu: Boolean = false,
-    onDismissed: () -> Unit,
     onSelected: (selected: Int) -> Unit,
 ) {
+    var showMenu by rememberSaveable {
+        mutableStateOf(false)
+    }
 
-    val bg =
-        if (LocalInspectionMode.current) Color(0xFF1E1E1E)
-        else secondary_background
-    val primaryColor =
-        if (LocalInspectionMode.current) Color(0xFFFFB871)
-        else md_theme_dark_primary
+    val bg = secondary_background
+    val primaryColor = MaterialTheme.colorScheme.primary
 
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
+            .clickable { showMenu = true }
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
             .padding(horizontal = 15.dp)
+            .height(40.dp)
             .then(modifier)
-            .height(50.dp)
     ) {
         Text(
             text = label,
@@ -180,7 +185,7 @@ fun DropDownMenu(
         Icon(
             imageVector = Icons.Filled.ArrowDropDown,
             contentDescription = "",
-            tint = Color.White
+            tint = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
 
@@ -189,7 +194,7 @@ fun DropDownMenu(
             if (LocalInspectionMode.current) Color(0xFF151515)
             else md_theme_dark_background
         Dialog(
-            onDismissRequest = { onDismissed() },
+            onDismissRequest = { showMenu = false },
         ) {
             Column(
                 modifier = Modifier
@@ -217,18 +222,19 @@ fun DropDownMenu(
                     items(valueList.size) {
                         CenteredBox(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
                                 .clickable {
+                                    showMenu = false
                                     onSelected(it)
                                 }
+                                .fillMaxWidth()
+                                .height(50.dp)
                         ) {
                             Text(
                                 text = valueList[it],
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(start = 20.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 maxLines = 1
                             )
                         }
@@ -254,30 +260,29 @@ fun ExpandableBlock(
 
     Column(
         modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .border(1.dp, outline, RoundedCornerShape(10.dp))
             .fillMaxWidth()
             .wrapContentHeight()
             .then(modifier)
-            .border(1.dp, outline, RoundedCornerShape(10.dp))
-            .clip(RoundedCornerShape(10.dp))
     ) {
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .height(50.dp)
+                .clickable { onClick?.let { it() } }
                 .padding(horizontal = 20.dp)
                 .fillMaxWidth()
-                .height(50.dp)
-                .clickable { onClick?.let { it() } }
+                .height(40.dp)
         ) {
             Text(
                 text = label,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Icon(
                 imageVector = Icons.Filled.ArrowDropDown,
                 contentDescription = "",
-                tint = Color.White
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
         if (expand) {
@@ -378,8 +383,8 @@ fun AsyncImage(
 
     Box(
         modifier = Modifier
-            .background(loadColor)
             .then(modifier)
+            .background(loadColor)
             .also {
                 overlayBrush?.let { brush ->
                     it.drawWithCache {
@@ -434,16 +439,12 @@ private fun DropDownMenuPreview() {
     AniStalkerTheme {
         DropDownMenu(
             label = "Test Menu",
-            valueList = arrayOf(
+            valueList = listOf(
                 "Bad", "Normal", "Good", "Great"
             ),
-            showMenu = false,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            onDismissed = {
-
-            }
         ) {
 
         }

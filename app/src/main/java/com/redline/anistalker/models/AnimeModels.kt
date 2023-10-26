@@ -52,12 +52,12 @@ enum class AnimeScore(val value: String, val index: Int) {
     MASTERPIECE("masterpiece", 10),
 }
 
-enum class AnimeCategory(val value: String) {
-    TOP_AIRING("top-airing"),
-    MOST_POPULAR("most-popular"),
-    MOST_FAVORITE("most-favorite"),
-    COMPLETED("completed"),
-    RECENTLY_UPDATED("recently-updated"),
+enum class AnimeCategory(val value: String, val label: String) {
+    TOP_AIRING("top-airing", "Top Airing"),
+    MOST_POPULAR("most-popular", "Most Popular"),
+    MOST_FAVORITE("most-favorite", "Most Favorite"),
+    COMPLETED("completed", "Completed"),
+    RECENTLY_UPDATED("recently-updated", "Recents"),
 }
 
 enum class AnimeTrack(val value: String, val index: Int) {

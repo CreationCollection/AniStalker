@@ -3,6 +3,7 @@ package com.redline.anistalker.ui.components
 import android.annotation.SuppressLint
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -51,20 +52,25 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.redline.anistalker.R
+import com.redline.anistalker.managements.helper.Net
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.ui.theme.AniStalkerTheme
 import com.redline.anistalker.ui.theme.aniStalkerColorScheme
 import com.redline.anistalker.ui.theme.md_theme_dark_background
 import com.redline.anistalker.ui.theme.md_theme_dark_outline
 import com.redline.anistalker.ui.theme.md_theme_dark_primary
+import com.redline.anistalker.ui.theme.mid_background
 import com.redline.anistalker.ui.theme.secondary_background
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -86,9 +92,8 @@ fun AniNavBar(
 
     Box(
         modifier = Modifier
-            .border(.5.dp, Color.White.copy(alpha = .5f), shape)
             .clip(shape)
-            .shadow(2.dp, shape = shape, ambientColor = aniStalkerColorScheme.background)
+            .shadow(20.dp, shape, ambientColor = bg, spotColor = bg)
             .fillMaxWidth()
             .background(bg)
             .navigationBarsPadding()
@@ -158,6 +163,7 @@ fun DropDownMenu(
     valueList: List<String>,
     modifier: Modifier = Modifier,
     title: String = label,
+    buttonFontSize: TextUnit = 12.sp,
     onSelected: (selected: Int) -> Unit,
 ) {
     var showMenu by rememberSaveable {
@@ -180,7 +186,8 @@ fun DropDownMenu(
     ) {
         Text(
             text = label,
-            color = Color.White
+            color = Color.White,
+            fontSize = buttonFontSize,
         )
         Icon(
             imageVector = Icons.Filled.ArrowDropDown,
@@ -251,6 +258,7 @@ fun ExpandableBlock(
     modifier: Modifier = Modifier,
     label: String,
     expand: Boolean = false,
+    height: Dp = 50.dp,
     onClick: (() -> Unit)? = null,
     content: @Composable (() -> Unit)?
 ) {
@@ -273,7 +281,7 @@ fun ExpandableBlock(
                 .clickable { onClick?.let { it() } }
                 .padding(horizontal = 20.dp)
                 .fillMaxWidth()
-                .height(40.dp)
+                .height(height)
         ) {
             Text(
                 text = label,
@@ -369,22 +377,26 @@ fun AsyncImage(
     overlayBrush: Brush? = null,
     loadColor: Color = Color(0xFF1E1E1E),
     contentDescription: String? = null,
+    contentScale: ContentScale = ContentScale.Crop,
+    contentAlignment: Alignment = Alignment.Center,
 ) {
     var bitmapPainter by remember {
         mutableStateOf<BitmapPainter?>(null)
     }
 
     LaunchedEffect(key1 = url) {
-        val bitmap: Bitmap? = withContext(Dispatchers.IO) {
-            null
+        if (!url.isNullOrBlank()) {
+            val bitmap: Bitmap? = withContext(Dispatchers.IO) {
+                BitmapFactory.decodeStream(Net.getStream(url))
+            }
+            bitmapPainter = bitmap?.let { BitmapPainter(it.asImageBitmap()) }
         }
-        bitmapPainter = bitmap?.let { BitmapPainter(it.asImageBitmap()) }
     }
 
     Box(
         modifier = Modifier
-            .then(modifier)
             .background(loadColor)
+            .then(modifier)
             .also {
                 overlayBrush?.let { brush ->
                     it.drawWithCache {
@@ -405,7 +417,48 @@ fun AsyncImage(
             if (bitmapPainter != null) Image(
                 painter = bitmapPainter!!,
                 contentDescription = contentDescription,
-                modifier = Modifier.matchParentSize()
+                modifier = Modifier.matchParentSize(),
+                contentScale = contentScale,
+                alignment = contentAlignment,
+            )
+        }
+    }
+}
+
+@Composable
+fun ErrorSnackBar(
+    loadingError: String,
+    onActionPerform: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color.White.copy(alpha = .08f))
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text = loadingError,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.weight(1f)
+        )
+        Divider(
+            modifier = Modifier
+                .width(1.dp)
+                .height(30.dp),
+        )
+        CenteredBox(
+            modifier = Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .clickable { onActionPerform() }
+                .height(35.dp)
+                .padding(horizontal = 20.dp)
+        ) {
+            Text(
+                text = "Try Again",
+                fontSize = 14.sp,
             )
         }
     }

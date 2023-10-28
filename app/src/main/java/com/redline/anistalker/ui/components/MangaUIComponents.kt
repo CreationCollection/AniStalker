@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -56,7 +57,7 @@ fun MangaCardView(
                 .clip(RoundedCornerShape(6.dp))
                 .background(dark_background)
                 .fillMaxWidth()
-                .height(140.dp)
+                .aspectRatio(.77f)
         ) {
 
             AsyncImage(
@@ -85,8 +86,12 @@ fun MangaCardView(
         Text(
             text = manga.title,
             color = Color.White,
+            fontSize = 14.sp,
             textAlign = TextAlign.Center,
-            maxLines = 2
+            maxLines = 2,
+            modifier = Modifier
+                .padding(horizontal = 5.dp, vertical = 5.dp)
+                .fillMaxWidth()
         )
     }
 }

@@ -47,12 +47,12 @@ class MangaReadViewModel(private val savedStateHandle: SavedStateHandle): ViewMo
     }
 
     private suspend fun fetchAllChapters(mangaId: String) {
-        savedStateHandle[stateChapters] = StalkMedia.Manga.getMangaChapters(mangaId)
+//        savedStateHandle[stateChapters] = StalkMedia.Manga.getMangaChapters(mangaId)
     }
 
     private suspend fun fetchPages() {
         val chapter = chapter.value ?: return
-        savedStateHandle[statePages] = StalkMedia.Manga.getMangaPages(chapter.id)
+//        savedStateHandle[statePages] = StalkMedia.Manga.getMangaPages(chapter.id)
     }
 
     private fun getChapterIndex(): Int {

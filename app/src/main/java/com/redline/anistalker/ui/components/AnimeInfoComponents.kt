@@ -79,8 +79,6 @@ private fun AnimeCardPopulatedDetails(
     highlightOwner: Boolean,
     highlightColor: Color
 ) {
-    val isAiring = animeCard.status == AnimeStatusModel.AIRING
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -91,11 +89,6 @@ private fun AnimeCardPopulatedDetails(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            AnimeStatus(
-                isAiring = isAiring,
-                type = animeCard.type
-            )
-
             Text(
                 text = animeCard.name.english,
                 maxLines = 1,
@@ -119,8 +112,8 @@ private fun AnimeCardPopulatedDetails(
                     .clip(RoundedCornerShape(4.dp))
             )
             Text(
-                text = animeCard.year.toString(),
-                color = Color.White,
+                text = animeCard.type.value,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp
             )
@@ -163,7 +156,7 @@ private fun AnimeCardSimmerDetails(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(18.dp)
+                .height(16.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(simmerColor)
         ) { }
@@ -171,7 +164,7 @@ private fun AnimeCardSimmerDetails(
         Box(
             modifier = Modifier
                 .fillMaxWidth(.7f)
-                .height(18.dp)
+                .height(16.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(simmerColor)
         ) { }
@@ -179,7 +172,7 @@ private fun AnimeCardSimmerDetails(
 }
 
 @Composable
-fun AnimeCard(
+fun AnimeCardView(
     animeCard: AnimeHalf? = null,
     simmerValue: Float = 0f,
     showOwner: Boolean = true,
@@ -193,29 +186,29 @@ fun AnimeCard(
     val imageShape = RoundedCornerShape(8.dp)
 
     Row(
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 5.dp)
             .also { if (animeCard != null) it.clickable { onClick(animeCard) } }
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
 
         AsyncImage(
             url = animeCard?.image,
             loadColor = simmerColor,
             modifier = Modifier
-                .width(85.dp)
-                .height(60.dp)
-                .clip(imageShape)
-                .also {
-                    if (animeCard != null)
-                        it.border(1.dp, outline, imageShape)
-                }
                 .clickable {
                     onImageClick?.let {
                         if (animeCard != null) it(animeCard)
                     }
+                }
+                .clip(imageShape)
+                .width(75.dp)
+                .height(60.dp)
+                .also {
+                    if (animeCard != null)
+                        it.border(1.dp, outline, imageShape)
                 }
         )
 
@@ -1214,7 +1207,7 @@ fun MediaEventView(
 @Composable
 private fun P_AnimeCard() {
     AniStalkerTheme {
-        AnimeCard(animeCard = AnimeHalf()) {
+        AnimeCardView(animeCard = AnimeHalf()) {
 
         }
     }
@@ -1224,7 +1217,7 @@ private fun P_AnimeCard() {
 @Composable
 private fun P_AnimeCardSimmer() {
     AniStalkerTheme {
-        AnimeCard() {
+        AnimeCardView() {
 
         }
     }

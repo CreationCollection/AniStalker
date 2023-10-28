@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -32,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,6 +46,7 @@ import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.WatchlistPrivacy
 import com.redline.anistalker.ui.theme.AniStalkerTheme
 import com.redline.anistalker.ui.theme.dark_background
+import com.redline.anistalker.ui.theme.dullRed
 import com.redline.anistalker.ui.theme.mid_background
 import com.redline.anistalker.ui.theme.secondary_background
 
@@ -85,7 +88,7 @@ fun BigEpisodeTail(
                         .background(Color.White)
                 ) {
                     Image(
-                        painter = awarePainterResource(
+                        painter = painterResource(
                             if (it) R.drawable.sub else R.drawable.dub
                         ),
                         contentDescription = null,
@@ -129,7 +132,7 @@ fun BigEpisodeTail(
 fun SmallEpisodeTail(
     episodes: AnimeEpisode
 ) {
-    val bg = mid_background
+    val bg = dark_background
     val totalBg = MaterialTheme.colorScheme.primaryContainer
     val totalFg = MaterialTheme.colorScheme.onPrimaryContainer
 
@@ -181,7 +184,7 @@ fun SmallEpisodeTail(
                             .clip(RoundedCornerShape(3.dp))
                     ) {
                         Image(
-                            painter = awarePainterResource(
+                            painter = painterResource(
                                 if (it) R.drawable.sub else R.drawable.dub
                             ),
                             contentDescription = null,
@@ -248,7 +251,6 @@ fun AnimeStatus(
         Text(
             text = type.value,
             color = color,
-            fontWeight = FontWeight.Bold,
             fontSize = 12.sp
         )
     }
@@ -373,9 +375,10 @@ fun EpisodeProgress(
 fun DownloadButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    contentPadding: PaddingValues = PaddingValues(),
     onClick: () -> Unit
 ) {
-    val color = Color(0xFFC51515)
+    val color = dullRed
 
     val colors = ButtonDefaults.buttonColors(
         containerColor = color,
@@ -390,17 +393,20 @@ fun DownloadButton(
         enabled = enabled,
         colors = colors,
         shape = RoundedCornerShape(6.dp),
+        contentPadding = contentPadding,
     ) {
         val contentColor = LocalContentColor.current
         Image(
-            painter = awarePainterResource(R.drawable.downloads),
+            painter = painterResource(R.drawable.downloads),
             contentDescription = null,
-            colorFilter = ColorFilter.tint(contentColor)
+            colorFilter = ColorFilter.tint(contentColor),
+            modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.size(4.dp))
         Text(
             text = "Download",
-            color = contentColor
+            color = contentColor,
+            fontSize = 12.sp,
         )
     }
 }
@@ -409,9 +415,10 @@ fun DownloadButton(
 fun StreamButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    contentPadding: PaddingValues = PaddingValues(),
     onClick: () -> Unit
 ) {
-    val color = Color(0xFFC51515)
+    val color = dullRed
 
     val colors = ButtonDefaults.buttonColors(
         containerColor = Color.White,
@@ -425,16 +432,22 @@ fun StreamButton(
         modifier = modifier,
         enabled = enabled,
         colors = colors,
+        contentPadding = contentPadding,
         shape = RoundedCornerShape(6.dp),
     ) {
         val contentColor = LocalContentColor.current
         Image (
-            painter = awarePainterResource(R.drawable.play),
+            painter = painterResource(R.drawable.play),
             contentDescription = null,
-            colorFilter = ColorFilter.tint(contentColor)
+            colorFilter = ColorFilter.tint(contentColor),
+            modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.size(4.dp))
-        Text(text = "Stream", color = contentColor)
+        Text(
+            text = "Stream",
+            color = contentColor,
+            fontSize = 12.sp,
+        )
     }
 }
 
@@ -442,9 +455,10 @@ fun StreamButton(
 fun ReadButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    contentPadding: PaddingValues = PaddingValues(),
     onClick: () -> Unit
 ) {
-    val color = Color(0xFFC51515)
+    val color = dullRed
 
     val colors = ButtonDefaults.buttonColors(
         containerColor = Color.White,
@@ -458,16 +472,22 @@ fun ReadButton(
         modifier = modifier,
         enabled = enabled,
         colors = colors,
+        contentPadding = contentPadding,
         shape = RoundedCornerShape(6.dp),
     ) {
         val contentColor = LocalContentColor.current
         Image (
-            painter = awarePainterResource(R.drawable.read),
+            painter = painterResource(R.drawable.read),
             contentDescription = null,
-            colorFilter = ColorFilter.tint(contentColor)
+            colorFilter = ColorFilter.tint(contentColor),
+            modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.size(4.dp))
-        Text(text = "Read", color = contentColor)
+        Text(
+            text = "Read",
+            color = contentColor,
+            fontSize = 12.sp,
+        )
     }
 }
 

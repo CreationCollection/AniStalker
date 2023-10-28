@@ -186,8 +186,6 @@ private fun SearchBarView(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .background(aniStalkerColorScheme.background)
-            .shadow(5.dp, ambientColor = bg, spotColor = bg)
-            .zIndex(99F)
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {

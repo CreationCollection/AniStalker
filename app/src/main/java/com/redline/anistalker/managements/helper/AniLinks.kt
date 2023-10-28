@@ -10,6 +10,7 @@ object AniLinks {
 
     object Anime {
         val spotlight = "$baseUrl/anime/spotlight"
+        private val category = "$baseUrl/anime/category/"
         private val genre = "$baseUrl/anime/genre/:genre"
         private val search = "$baseUrl/anime/search/:keyword?page=:page"
         private val filter = "$baseUrl/anime/filter?page=:page"
@@ -43,7 +44,7 @@ object AniLinks {
                 .replace(":files", files.toString())
 
         fun makeCategoryLink(category: AnimeCategory) =
-            "$baseUrl/anime/" + category.value
+            this.category + category.value
 
         fun makeGenreLink(genre: String) =
             this.genre.replace(":genre", genre)

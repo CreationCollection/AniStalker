@@ -152,9 +152,7 @@ object AnimeMediaExtractor {
         )
     }
     fun makeAnimeSpotlight(value: JSONObject): AnimeSpotlight {
-        val id = value.getJSONObject("id").run {
-            getInt("zoroId")
-        }
+        val id = value.getSafeInt("id")
         val title = value.getJSONObject("title").run {
             AnimeTitle(getSafeString("english"), getSafeString("userPreferred"))
         }

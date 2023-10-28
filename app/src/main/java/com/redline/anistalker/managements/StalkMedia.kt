@@ -45,30 +45,32 @@ private class MediaPage<T>(val url: String, initialPage: Int = 0, val factory: (
     override fun hasNextPage(): Boolean = hasMore
 
     override suspend fun nextPage(): List<T> {
-        loading = true
+        return withContext(Dispatchers.IO) {
+            loading = true
 
-        val value = Net.get(url.replace(":page", "${currentPage + 1}"))
-        val json = JSONObject(value)
+            val value = Net.get(url.replace(":page", "${currentPage + 1}"))
+            val json = JSONObject(value)
 
-        val status = json.getInt("status")
+            val status = json.getInt("status")
 
-        if (status == 404) {
-            throw AniError(AniErrorCode.NOT_FOUND, "No Content Found.")
-        } else if (status != 200) {
-            throw AniError(AniErrorCode.SERVER_ERROR)
-        }
+            if (status == 404) {
+                throw AniError(AniErrorCode.NOT_FOUND, "No Content Found.")
+            } else if (status != 200) {
+                throw AniError(AniErrorCode.SERVER_ERROR)
+            }
 
-        hasMore = json.getSafeInt("lastPage", currentPage + 1) > currentPage + 1
-        currentPage = json.getSafeInt("page", currentPage)
+            hasMore = json.getSafeInt("lastPage", currentPage + 1) > currentPage + 1
+            currentPage = json.getSafeInt("page", currentPage)
 
-        val list = mutableListOf<T>()
-        json.getJSONArray("data").run {
-            for (i in 0 until length()) {
-                list.add(factory(getJSONObject(i)))
+            loading = false
+            json.getJSONArray("data").run {
+                val list = mutableListOf<T>()
+                for (i in 0 until length()) {
+                    list.add(factory(getJSONObject(i)))
+                }
+                list
             }
         }
-        loading = false
-        return list
     }
 
 }

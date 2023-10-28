@@ -48,7 +48,7 @@ fun rememberSimmerValue(): State<Float> {
         targetValue = 1f,
         animationSpec = InfiniteRepeatableSpec(
             tween(durationMillis = 3000),
-            repeatMode = RepeatMode.Restart,
+            repeatMode = RepeatMode.Reverse,
         ),
         label = "Simmer Color"
     )

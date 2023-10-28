@@ -315,7 +315,7 @@ private fun AnimeSpotlightPopulatedView(
                 .fillMaxHeight(.9f)
         ) {
             AsyncImage(
-                url = spotlights[it].image,
+                url = spotlights[it % spotlightSize].image,
                 loadColor = lerp(simmerStart, simmerEnd, simmerValue),
                 modifier = Modifier
                     .fillMaxSize()

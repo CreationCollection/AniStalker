@@ -5,90 +5,135 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.redline.anistalker.managements.StalkMedia
+import com.redline.anistalker.managements.UserData
+import com.redline.anistalker.models.AniError
+import com.redline.anistalker.models.AniErrorCode
 import com.redline.anistalker.models.Anime
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeCategory
 import com.redline.anistalker.models.AnimeSpotlight
 import com.redline.anistalker.models.IMediaPage
+import com.redline.anistalker.utils.fill
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class HomeViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
-    private val stateSpotlight = "STATE_SPOTLIGHT"
-    private val stateCurrentAnime = "STATE_CURRENT_ANIME"
-    private val stateAnimeCategory = "STATE_ANIME_CATEGORY"
+class HomeViewModel() : ViewModel() {
+    private var isSpotlightLoaded = false
+    private var page: IMediaPage<AnimeCard>? = null
+    private var jobScope = CoroutineScope(Dispatchers.Main)
 
-    private val isSpotlightLoading = false
-    private val pageForCategory = mutableMapOf<String, IMediaPage<AnimeCard>>()
+    private val _spotlightAnime = MutableStateFlow(emptyList<AnimeSpotlight>())
+    val spotlightAnime = _spotlightAnime.asStateFlow()
+    val currentAnime = UserData.getCurrentWatchAnime()
 
-    private val _spotlightImages = MutableStateFlow<List<Bitmap?>>(listOf())
+    private val _animeList = MutableStateFlow(listOf<AnimeCard?>())
+    val animeList = _animeList.asStateFlow()
+    private val _spotlightError = MutableStateFlow<Pair<AniErrorCode, String>?>(null)
+    val spotlightError = _spotlightError.asStateFlow()
+    private val _error = MutableStateFlow<Pair<AniErrorCode, String>?>(null)
+    val error = _error.asStateFlow()
 
-    val spotlightAnime =
-        savedStateHandle.getStateFlow<List<AnimeSpotlight>>(stateSpotlight, listOf())
-    val spotlightImages = _spotlightImages.asStateFlow()
-    val currentAnime = savedStateHandle.getStateFlow<Anime?>(stateCurrentAnime, null)
+    val animeCategories = listOf(
+        AnimeCategory.RECENTLY_UPDATED,
+        AnimeCategory.TOP_AIRING,
+        AnimeCategory.COMPLETED,
+        AnimeCategory.MOST_FAVORITE,
+        AnimeCategory.MOST_POPULAR,
+    )
 
-    fun getAnimeListFor(category: AnimeCategory): StateFlow<List<AnimeCard?>> {
-        return savedStateHandle.getStateFlow(
-            animeCategoryTag(category),
-            listOf()
-        )
+    init {
+        loadSpotlightAnime()
+        changeCategory(animeCategories[0])
     }
 
-    fun hasNextPageFor(category: AnimeCategory): Boolean {
-        return getPageFor(category).hasNextPage()
+    override fun onCleared() {
+        super.onCleared()
+        jobScope.cancel()
     }
 
-    fun loadNextPageFor(category: AnimeCategory) {
-        val page = getPageFor(category)
+    fun changeCategory(category: AnimeCategory) {
+        jobScope.cancel()
+        jobScope = CoroutineScope(Dispatchers.Main)
 
-        if (page.isLoading()) return
+        page = StalkMedia.Anime.getAnimeByCategory(category)
+        _animeList.value = listOf()
+        loadNextPage()
+    }
 
-        val offset = updateStateValueFor(
-            category, mutableListOf<AnimeCard?>().apply {
-                for (i in 1..10) {
-                    add(null)
+    fun loadNextPage() {
+        page?.run {
+            if (isLoading() || !hasNextPage()) return
+            jobScope.launch {
+                safeExecute(
+                    catch = { _error.value = it }
+                ) {
+                    updateAnimeList(emptyAnimeList())
+                    val list = mutableListOf<AnimeCard>()
+                    nextPage().toCollection(list)
+                    updateAnimeList(list)
                 }
             }
-        )
-        viewModelScope.launch(Dispatchers.IO) {
-            delay(2000)
-            updateStateValueFor(category, page.nextPage(), offset)
         }
     }
 
     fun loadSpotlightAnime() {
-        if (isSpotlightLoading) return
+        if (isSpotlightLoaded) return
+
         viewModelScope.launch {
-            delay(5000)
-            val values = StalkMedia.Anime.getSpotlightAnime()
-            savedStateHandle[stateSpotlight] = values
-            _spotlightImages.value = mutableListOf<Bitmap?>().apply {
-                for (i in 1..10) add(null)
+            safeExecute(
+                catch = { _spotlightError.value = it }
+            ) {
+                _spotlightAnime.value = StalkMedia.Anime.getSpotlightAnime()
+                isSpotlightLoaded = true
             }
         }
     }
 
-    private fun getPageFor(category: AnimeCategory): IMediaPage<AnimeCard> {
-        return pageForCategory.getOrPut(category.value) {
-            StalkMedia.Anime.getAnimeByCategory(category)
+    private fun updateAnimeList(values: List<AnimeCard?>) {
+        _animeList.value = values.toCollection(_animeList.value.filterNotNull().toMutableList())
+    }
+
+    private suspend fun safeExecute(
+        catch: (Pair<AniErrorCode, String>) -> Unit,
+        calculation: suspend () -> Unit
+    ) {
+        try {
+            calculation()
+        } catch (ex: AniError) {
+            ex.printStackTrace()
+            var message = ""
+            message = when (ex.errorCode) {
+                AniErrorCode.SERVER_ERROR ->
+                    "Something is wrong at server size."
+
+                AniErrorCode.SLOW_NETWORK_ERROR ->
+                    "Unstable Internet Connection detected"
+
+                AniErrorCode.CONNECTION_ERROR ->
+                    "Unable to reach server, connection problem happened"
+
+                else ->
+                    "Unrecognized Error: ${ex.message}"
+            }
+            catch(Pair(ex.errorCode, message))
+        } catch (ex: Exception) {
+            ex.printStackTrace()
+            catch(
+                Pair(
+                    AniErrorCode.UNKNOWN,
+                    ex.message ?: AniErrorCode.UNKNOWN.message
+                )
+            )
         }
     }
 
-    private fun updateStateValueFor(category: AnimeCategory, values: List<AnimeCard?>, startOffset: Int = 1): Int {
-        var offset = 1
-        savedStateHandle.get<List<AnimeCard?>>(animeCategoryTag(category))?.run {
-            offset = size
-            savedStateHandle[animeCategoryTag(category)] =
-                this.subList(0, startOffset).toMutableList().addAll(values)
-        }
-        return offset
+    private fun emptyAnimeList(): List<AnimeCard?> {
+        return mutableListOf<AnimeCard?>().fill(10) { null }
     }
-
-    private fun animeCategoryTag(category: AnimeCategory): String =
-        "${stateAnimeCategory}_${category.value}"
 }

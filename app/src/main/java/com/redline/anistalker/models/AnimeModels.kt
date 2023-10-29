@@ -1,5 +1,9 @@
 package com.redline.anistalker.models
 
+private val monthCodes = arrayOf(
+    "JAN", "FEB", "MAR", "APR", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"
+)
+
 // ========================
 // Anime Enums
 // ========================
@@ -84,7 +88,15 @@ data class AnimeTitle(val english: String = "English Title", val userPreferred: 
 
 data class AnimeEpisode(val sub: Int = 0, val dub: Int = 0, val total: Int = 0)
 
-data class AnimeDate(val date: Int = 0, val month: Int = 0, val year: Int = 0)
+data class AnimeDate(val date: Int = 0, val month: Int = 0, val year: Int = 0) {
+    fun toDateString(): String {
+        return "$date ${ monthCodes[month % 12] } $year"
+    }
+
+    fun isValid(): Boolean {
+        return !(date == 0 && month == 0 && year == 0)
+    }
+}
 
 data class AnimeRelation(
     val zoroId: Int = 0,

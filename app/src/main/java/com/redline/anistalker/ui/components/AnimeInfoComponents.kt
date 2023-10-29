@@ -190,7 +190,7 @@ fun AnimeCardView(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .also { if (animeCard != null) it.clickable { onClick(animeCard) } }
+            .let { if (animeCard != null) it.clickable { onClick(animeCard) } else it }
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
@@ -205,7 +205,7 @@ fun AnimeCardView(
                     }
                 }
                 .clip(imageShape)
-                .border(1.dp, outline, imageShape)
+                .let { if (animeCard != null) it.border(1.dp, outline, imageShape) else it }
                 .width(75.dp)
                 .height(60.dp)
         )

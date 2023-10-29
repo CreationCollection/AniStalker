@@ -67,6 +67,7 @@ import com.redline.anistalker.ui.theme.secondary_background
 import com.redline.anistalker.utils.toDurationFormat
 import com.redline.anistalker.utils.toSizeFormat
 import java.lang.Float.max
+import kotlin.math.ceil
 import kotlin.random.Random
 import com.redline.anistalker.models.AnimeCard as AnimeHalf
 import com.redline.anistalker.models.AnimeStatus as AnimeStatusModel
@@ -204,12 +205,9 @@ fun AnimeCardView(
                     }
                 }
                 .clip(imageShape)
+                .border(1.dp, outline, imageShape)
                 .width(75.dp)
                 .height(60.dp)
-                .also {
-                    if (animeCard != null)
-                        it.border(1.dp, outline, imageShape)
-                }
         )
 
         Box(
@@ -460,7 +458,8 @@ private fun AnimeDownloadCard_Details(
     val duration = details.downloadStats.duration.toDurationFormat().split(" ")
 
     val image = remember(details) {
-        details.images[Random.nextInt(details.images.size)]
+        if (details.images.isNotEmpty()) details.images[Random.nextInt(details.images.size)]
+        else null
     }
 
     Box(
@@ -586,13 +585,11 @@ private fun AnimeDownloadCard_Details(
 @Composable
 private fun AnimeDownloadCard_Progress(
     downloads: List<OngoingEpisodeDownload>,
-    progress: Float,
     onPause: () -> Unit,
     onCancel: () -> Unit,
     onEpisodePause: (episode: OngoingEpisodeDownload) -> Unit,
 ) {
     var isPaused = false
-    val progressVal = max(0f, min(1f, progress / 100f))
     val primaryFix = MaterialTheme.colorScheme.onPrimaryContainer
     val color = MaterialTheme.colorScheme.inversePrimary
     val status = remember(downloads) {
@@ -636,76 +633,59 @@ private fun AnimeDownloadCard_Progress(
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 15.dp)
     ) {
-        Column (
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Image(
-                        painter = awarePainterResource(R.drawable.downloading),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(primaryFix),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Text(
-                        text = status[0].toString(),
-                        color = primaryFix,
-                        fontSize = 12.sp
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Image(
-                        painter = awarePainterResource(R.drawable.pause),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(primaryFix),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Text(
-                        text = status[1].toString(),
-                        color = primaryFix,
-                        fontSize = 12.sp
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Image(
-                        painter = awarePainterResource(R.drawable.download_queue),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(primaryFix),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Text(
-                        text = status[2].toString(),
-                        color = primaryFix,
-                        fontSize = 12.sp
-                    )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = speed,
-                    color = Color.White,
-                    fontSize = 12.sp
+                Image(
+                    painter = awarePainterResource(R.drawable.downloading),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(primaryFix),
+                    modifier = Modifier.size(15.dp)
                 )
-                Divider(modifier = Modifier.size(4.dp), color = Color.White.copy(alpha = .4f))
                 Text(
-                    text = progress.toString().format("%.1f") + "%",
-                    color = Color.White,
+                    text = status[0].toString(),
+                    color = primaryFix,
                     fontSize = 12.sp
                 )
             }
-            LinearProgressIndicator(
-                progress = progressVal,
-                trackColor = Color.White.copy(alpha = .25f),
-                color = color,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Image(
+                    painter = awarePainterResource(R.drawable.pause),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(primaryFix),
+                    modifier = Modifier.size(15.dp)
+                )
+                Text(
+                    text = status[1].toString(),
+                    color = primaryFix,
+                    fontSize = 12.sp
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Image(
+                    painter = awarePainterResource(R.drawable.download_queue),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(primaryFix),
+                    modifier = Modifier.size(15.dp)
+                )
+                Text(
+                    text = status[2].toString(),
+                    color = primaryFix,
+                    fontSize = 12.sp
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = speed,
+                color = Color.White,
+                fontSize = 12.sp
             )
         }
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth()
@@ -737,23 +717,44 @@ private fun AnimeDownloadCard_Progress(
             }
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(4),
+        val rows = ceil(downloads.size / 4.0).toInt()
+        Column (
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(downloads) {
-                val value =
-                    if (it.duration <= 0) 0f
-                    else (it.downloadedDuration / it.duration)
-
-                EpisodeProgress(
-                    num = it.num,
-                    value = value,
-                    relationCode = it.relationCode,
-                    status = it.status,
+            repeat(rows) { x ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
                 ) {
-                    onEpisodePause(it)
+                    repeat(4) { y ->
+                        val index = (x * 4) + y
+                        if (index < downloads.size) {
+                            val it = downloads[index]
+
+                            val value =
+                                if (it.duration <= 0) 0f
+                                else (it.downloadedDuration / it.duration)
+
+                            Box (
+                                modifier = Modifier.weight(1f)
+                            ){
+                                EpisodeProgress(
+                                    num = it.num,
+                                    value = value,
+                                    relationCode = it.relationCode,
+                                    status = it.status,
+                                ) {
+                                    onEpisodePause(it)
+                                }
+                            }
+                        }
+                        else {
+                            Box(
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -773,7 +774,7 @@ private fun AnimeDownloadCard_Content(
         for (i in content.entries) {
             Column(
             ) {
-                CenteredBox (
+                CenteredBox(
                     modifier = Modifier.height(25.dp)
                 ) {
                     Text(
@@ -804,9 +805,7 @@ private fun AnimeDownloadCard_Content(
 @Composable
 fun AnimeDownloadCard(
     animeInfo: AnimeDownload,
-    contentMap: Map<String, List<EpisodeRange>>,
     ongoingDownloads: List<OngoingEpisodeDownload>,
-    progress: Float = 0f,
     showContent: Boolean = false,
     onExpandContent: (() -> Unit)? = null,
     onPauseAll: (() -> Unit)? = null,
@@ -838,16 +837,10 @@ fun AnimeDownloadCard(
             Divider(color = outline)
             AnimeDownloadCard_Progress(
                 downloads = ongoingDownloads,
-                progress = progress,
                 onPause = { onPauseAll?.let { it() } },
                 onCancel = { onCancelAll?.let { it() } },
                 onEpisodePause = { d -> onDownloadClick?.let { it(d) } }
             )
-        }
-
-        AnimatedVisibility(visible = showContent) {
-            Divider(color = outline)
-            AnimeDownloadCard_Content(content = contentMap) { start -> onContentClick?.let { it(start) } }
         }
     }
 }
@@ -867,7 +860,7 @@ fun EpisodeDownloadContentView(
             .fillMaxWidth()
             .padding(vertical = 10.dp, horizontal = 20.dp)
     ) {
-        CenteredBox (
+        CenteredBox(
             modifier = Modifier
                 .size(50.dp)
                 .clip(RoundedCornerShape(4.dp))
@@ -913,7 +906,7 @@ fun EpisodeDownloadContentView(
                 .height(38.dp)
                 .padding(4.dp)
         ) {
-            CenteredBox (
+            CenteredBox(
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(60.dp)
@@ -931,7 +924,7 @@ fun EpisodeDownloadContentView(
                     .width(1.dp),
                 color = MaterialTheme.colorScheme.outline
             )
-            CenteredBox (
+            CenteredBox(
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(60.dp)
@@ -1003,7 +996,7 @@ fun EpisodeDownloadView(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                
+
                 Text(
                     text = details.quality.value,
                     color = color,
@@ -1022,7 +1015,8 @@ fun EpisodeDownloadView(
                 Spacer(modifier = Modifier.weight(1f))
 
                 Text(
-                    text = statusInfo?.let { it.downloadSpeed.toSizeFormat() + "/s" } ?: details.size.toSizeFormat(),
+                    text = statusInfo?.let { it.downloadSpeed.toSizeFormat() + "/s" }
+                        ?: details.size.toSizeFormat(),
                     color = color,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
@@ -1085,6 +1079,7 @@ fun MediaEventView(
                 else -> "Unknown"
             }
         }
+
         is Event.MangaEvent -> {
             contentNum = event.chapterNum
             when (event.type) {
@@ -1109,8 +1104,9 @@ fun MediaEventView(
                 .clickable { onClick?.let { it(event.id) } }
         ) {
 
-            Box (modifier = Modifier
-                .size(width = 80.dp, height = 100.dp)
+            Box(
+                modifier = Modifier
+                    .size(width = 80.dp, height = 100.dp)
             ) {
                 this@Row.AnimatedVisibility(
                     visible = image == null,
@@ -1118,10 +1114,10 @@ fun MediaEventView(
                     exit = fadeOut(),
                 ) {
                     Box(
-                       modifier = Modifier
-                           .clip(RoundedCornerShape(10.dp))
-                           .background(bg)
-                           .fillMaxSize()
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(bg)
+                            .fillMaxSize()
                     ) {}
                 }
 
@@ -1182,11 +1178,10 @@ fun MediaEventView(
         Row(
         ) {
             if (isManga) {
-                ReadButton (modifier = Modifier.weight(1f)) {
+                ReadButton(modifier = Modifier.weight(1f)) {
                     onStream?.let { it(event.id) }
                 }
-            }
-            else {
+            } else {
                 StreamButton(modifier = Modifier.weight(1f)) {
                     onStream?.let { it(event.id) }
                 }
@@ -1194,7 +1189,7 @@ fun MediaEventView(
 
             Spacer(modifier = Modifier.size(10.dp))
 
-            DownloadButton (modifier = Modifier.weight(1f)) {
+            DownloadButton(modifier = Modifier.weight(1f)) {
                 onDownload?.let { it(event.id) }
             }
         }
@@ -1247,20 +1242,6 @@ private fun P_AnimeDownloadCard_ProgressOnly() {
     AniStalkerTheme {
         AnimeDownloadCard(
             animeInfo = AnimeDownload(),
-            contentMap = mutableMapOf(
-                "Season 1" to listOf(
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                ),
-                "Season 1" to listOf(
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                )
-            ),
             ongoingDownloads = listOf(
                 OngoingEpisodeDownload(),
                 OngoingEpisodeDownload(),
@@ -1279,20 +1260,6 @@ private fun P_AnimeDownloadCard_OnlyContent() {
     AniStalkerTheme {
         AnimeDownloadCard(
             animeInfo = AnimeDownload(),
-            contentMap = mutableMapOf(
-                "Season 1" to listOf(
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                ),
-                "Season 1" to listOf(
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                )
-            ),
             ongoingDownloads = listOf(
             ),
             showContent = true,
@@ -1306,20 +1273,6 @@ private fun P_AnimeDownloadCard_AllIn() {
     AniStalkerTheme {
         AnimeDownloadCard(
             animeInfo = AnimeDownload(),
-            contentMap = mutableMapOf(
-                "Season 1" to listOf(
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                ),
-                "Season 1" to listOf(
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                    EpisodeRange(),
-                )
-            ),
             ongoingDownloads = listOf(
                 OngoingEpisodeDownload(duration = 1f, downloadedDuration = .5f),
                 OngoingEpisodeDownload(

@@ -395,8 +395,8 @@ fun AsyncImage(
 
     Box(
         modifier = Modifier
-            .background(loadColor)
             .then(modifier)
+            .background(loadColor)
             .also {
                 overlayBrush?.let { brush ->
                     it.drawWithCache {

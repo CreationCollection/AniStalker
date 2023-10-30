@@ -57,8 +57,8 @@ data class AnimeDownload (
     val year: Int = 0,
     val anime: List<AnimeShort> = emptyList(),
     val downloadStats: AnimeDownloadContentInfo = AnimeDownloadContentInfo(),
-    val content: Map<Int, List<EpisodeDownload>> = emptyMap(),
-    val ongoingContent: List<EpisodeDownload> = emptyList()
+    val content: Map<Int, List<Int>> = emptyMap(),
+    val ongoingContent: List<Int> = emptyList()
 )
 
 data class MangaDownload (

@@ -13,23 +13,22 @@ import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.HistoryEntry
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.Watchlist
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     private val stateId = "STATE_ID"
-    private val stateAnime = "STATE_ANIME"
-    private val stateImages = "STATE_IMAGES"
-    private val stateWatchlist = "STATE_WATCHLIST"
-    private val stateHistory = "STATE_HISTORY"
-    private val stateEpisodes = "STATE_EPISODES"
 
     private var currentAnimeId = savedStateHandle.getStateFlow(stateId, 0)
 
-    val anime = savedStateHandle.getStateFlow<Anime?>(stateAnime, null)
-    val images = savedStateHandle.getStateFlow<List<String>?>(stateImages, null)
-    val watchlist = savedStateHandle.getStateFlow<List<Watchlist>?>(stateWatchlist, null)
-    val history = savedStateHandle.getStateFlow<HistoryEntry?>(stateHistory, null)
-    val episodes = savedStateHandle.getStateFlow<List<AnimeEpisodeDetail>?>(stateEpisodes, null)
+    private val _anime = MutableStateFlow<Anime?>(null)
+    val anime = _anime.asStateFlow()
+    private val _watchlist = MutableStateFlow<List<Watchlist>?>(null)
+    val watchlist = _watchlist.asStateFlow()
+    private val _images = MutableStateFlow(emptyList<String>())
+    val images = _images.asStateFlow()
+
 
     init {
         viewModelScope.launch {
@@ -41,11 +40,9 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
         if (currentAnimeId.value != animeId) viewModelScope.launch {
             savedStateHandle[stateId] = animeId
             val result = StalkMedia.Anime.getAnimeDetail(animeId)
-            savedStateHandle[stateAnime] = result
-            launch { savedStateHandle[stateImages] = StalkMedia.Anime.getAnimeImageList(result.id) }
+            _anime.value = result
+//            launch { _images.value = StalkMedia.Anime.getAnimeImageList(result.id) }
             launch { updateWatchlist() }
-            launch { savedStateHandle[stateHistory] = UserData.getHistoryEntry(animeId) }
-            launch { savedStateHandle[stateEpisodes] = StalkMedia.Anime.getAnimeEpisodes(animeId) }
         }
     }
 
@@ -62,24 +59,24 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
     }
 
     fun updateEvent(episodeEvent: Boolean, completionEvent: Boolean) {
-        history.value?.run {
-            savedStateHandle[stateHistory] = UserData.updateHistory(
-                currentAnimeId.value,
-                copy(
-                    contentEvent = episodeEvent,
-                    completionEvent = completionEvent
-                )
-            )
-        }
+//        history.value?.run {
+//            savedStateHandle[stateHistory] = UserData.updateHistory(
+//                currentAnimeId.value,
+//                copy(
+//                    contentEvent = episodeEvent,
+//                    completionEvent = completionEvent
+//                )
+//            )
+//        }
     }
 
     fun updateLastEpisode(lastEpisode: Int) {
-        history.value?.run {
-            savedStateHandle[stateHistory] = UserData.updateHistory(
-                currentAnimeId.value,
-                copy(lastContent = lastEpisode)
-            )
-        }
+//        history.value?.run {
+//            savedStateHandle[stateHistory] = UserData.updateHistory(
+//                currentAnimeId.value,
+//                copy(lastContent = lastEpisode)
+//            )
+//        }
     }
 
     private fun updateWatchlist() {
@@ -87,6 +84,6 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
         UserData.watchlist.value.forEach {
             if (it.series.contains(currentAnimeId.value)) list.add(it)
         }
-        savedStateHandle[stateWatchlist] = list
+        _watchlist.value = list
     }
 }

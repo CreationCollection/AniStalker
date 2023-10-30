@@ -4,4 +4,5 @@
     <string name="serverClientId">351429526556-6nosgfhh41to1a8iir7vmc7126aeb0nb.apps.googleusercontent.com</string>
     <string name="title_activity_auth_screen">AuthScreen</string>
     <string name="title_activity_main">MainActivity</string>
+    <string name="title_activity_anime_detail">AnimeDetailActivity</string>
 </resources>

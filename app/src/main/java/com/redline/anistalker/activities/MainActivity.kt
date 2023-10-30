@@ -1,5 +1,6 @@
 package com.redline.anistalker.activities
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -130,6 +131,13 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun openAnimeDetails(animeId: Int) {
+        val intent = Intent(this@MainActivity, AnimeDetailActivity::class.java)
+            .putExtra("animeId", animeId)
+        startActivity(intent)
+    }
+
     private fun NavGraphBuilder.homeScreenComposable() = composable(
         route = screenHome,
         enterTransition = { slideInVertically { it / 2 } + fadeIn() },
@@ -155,7 +163,7 @@ class MainActivity : ComponentActivity() {
             spotlightError = spotlightError?.second,
 
             onSpotlightClicked = {
-
+                openAnimeDetails(it.id)
             },
             onLoadSpotlight = { viewModel.loadSpotlightAnime() },
             onStreamCurrentAnime = {
@@ -171,7 +179,7 @@ class MainActivity : ComponentActivity() {
                 viewModel.changeCategory(it)
             },
             onAnimeCardClicked = {
-
+                openAnimeDetails(it.id)
             }
         ) {
             viewModel.loadNextPage()
@@ -192,7 +200,7 @@ class MainActivity : ComponentActivity() {
             animeContent = animeContent,
             loadingError = loadingError?.second,
             onLoadNextPage = { viewModel.loadNextAnimePage() },
-            onAnimeClicked = {  },
+            onAnimeClicked = { openAnimeDetails(it) },
         ) { query, animeFilter ->
             if (query.isEmpty())
                 viewModel.filter(animeFilter)

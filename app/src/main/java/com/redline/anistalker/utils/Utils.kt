@@ -2,8 +2,8 @@ package com.redline.anistalker.utils
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import kotlin.math.roundToInt
-
 
 private val sizeLabels = arrayOf("B", "KB", "MB", "GB")
 fun Long.toSizeFormat(): String {
@@ -70,6 +70,32 @@ fun <T> List<T>.fill(count: Int, items: (Int) -> T): List<T> {
 
 fun <T> fillList(count: Int, items: (Int) -> T): List<T> {
     return mutableListOf<T>().fill(count, items)
+}
+
+fun<T, R> List<T>.utilize(initial: R, offset: Int = 0, callback: (item: T, result: R) -> R): R {
+    var result: R = initial
+
+    for (i in offset until size) {
+        result = callback(get(i), result)
+    }
+
+    return result
+}
+
+fun<T, R> Array<T>.utilize(initial: R, offset: Int = 0, callback: (item: T, result: R) -> R): R {
+    var result: R = initial
+
+    for (i in offset until size) {
+        result = callback(get(i), result)
+    }
+
+    return result
+}
+
+fun String.combineAsPath(vararg paths: String): String{
+    return paths.utilize(this) { i, r ->
+        r + File.pathSeparator + i
+    }
 }
 
 

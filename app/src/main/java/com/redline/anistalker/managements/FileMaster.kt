@@ -1,6 +1,7 @@
 package com.redline.anistalker.managements
 
 import android.content.Context
+import androidx.core.os.CancellationSignal
 import com.redline.anistalker.managements.UserData.watchlist
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
@@ -17,6 +18,7 @@ import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.VideoRange
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
+import com.redline.anistalker.utils.combineAsPath
 import com.redline.anistalker.utils.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,6 +29,7 @@ import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
 import java.io.FileReader
+import java.io.FilenameFilter
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -46,16 +49,15 @@ object FileMaster {
     private val downloadEntry = "entries"
     private val downloadContent = "contents"
     private val downloadSources = "sources"
-
-
-    private val writerPool =
-        Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+    private val downloadSegments = "segments"
 
     fun initialize(context: Context) {
         baseLocation = context.filesDir
     }
 
-    suspend fun readAllAnimeCards(): List<AnimeCard> {
+
+
+    fun readAllAnimeCards(): List<AnimeCard> {
         val file = File(baseLocation, animeCardLocation)
         val list = mutableListOf<AnimeCard>()
 
@@ -66,7 +68,7 @@ object FileMaster {
         return list
     }
 
-    suspend fun readAllWatchlist(): List<Watchlist> {
+    fun readAllWatchlist(): List<Watchlist> {
         val file = File(baseLocation, watchlistLocation)
         val list = mutableListOf<Watchlist>()
 
@@ -77,8 +79,8 @@ object FileMaster {
         return list
     }
 
-    suspend fun readAllDownloadEntries(): List<AnimeDownload> {
-        val file = File(baseLocation, downloadEntry)
+    fun readAllDownloadEntries(): List<AnimeDownload> {
+        val file = File(baseLocation, downloads.combineAsPath(downloadEntry))
         val list = mutableListOf<AnimeDownload>()
 
         file.listFiles()?.forEach {
@@ -88,8 +90,8 @@ object FileMaster {
         return list
     }
 
-    suspend fun readAllDownloadContent(): List<EpisodeDownload> {
-        val file = File(baseLocation, downloadContent)
+    fun readAllDownloadContent(): List<EpisodeDownload> {
+        val file = File(baseLocation, downloads.combineAsPath(downloadContent))
         val list = mutableListOf<EpisodeDownload>()
 
         file.listFiles()?.forEach {
@@ -99,47 +101,74 @@ object FileMaster {
         return list
     }
 
+    fun readAllDownloadSources(source: (String) -> Unit) {
+        val file = File(baseLocation, downloads.combineAsPath(downloadSources))
+        file.listFiles()?.forEach {
+            source(read(it))
+        }
+    }
+
+    // region Writers
+    // ==========
+    // Writers
+    // ==========
     fun write(watchlist: Watchlist) {
-        val file = File(baseLocation, watchlistLocation)
+        val file = File(baseLocation, watchlistLocation.combineAsPath(watchlist.id.toString()))
         val data = watchlist.toJSON().toString(4)
         write(file, data)
     }
 
 
     fun write(animeCard: AnimeCard) {
-        val file = File(baseLocation, animeCardLocation)
+        val file = File(baseLocation, animeCardLocation.combineAsPath(animeCard.id.toString()))
         val data = animeCard.toJSON().toString(4)
         write(file, data)
     }
 
     fun write(animeDownload: AnimeDownload) {
-        val file = File(baseLocation, watchlistLocation)
+        val file =
+            File(baseLocation, downloads.combineAsPath(downloadEntry, animeDownload.dId.toString()))
         val data = animeDownload.toJSON().toString(4)
         write(file, data)
     }
 
     fun write(episodeDownload: EpisodeDownload) {
-        val file = File(baseLocation, downloadContent)
+        val file = File(
+            baseLocation,
+            downloads.combineAsPath(downloadContent, episodeDownload.id.toString())
+        )
         val data = episodeDownload.toJSON().toString()
         write(file, data)
     }
+    // endregion
 
-    suspend fun read(file: File): String {
-        return withContext(Dispatchers.IO) {
-            val reader = BufferedReader(InputStreamReader(file.inputStream()))
-            val builder = StringBuilder()
-            var line: String
+    fun read(file: File): String {
+        val reader = BufferedReader(InputStreamReader(file.inputStream()))
+        val builder = StringBuilder()
+        var line: String
 
-            while (reader.readLine().also { line = it } != null) {
-                builder.append(line)
-            }
-
-            builder.toString()
+        while (reader.readLine().also { line = it } != null) {
+            builder.append(line)
         }
+
+        return builder.toString()
     }
 
-    private fun write(file: File, data: String) {
-        writerPool.execute {
+    fun write(file: File, data: String) {
+        if (file.exists()) {
+            try {
+                val temp = File(file.absolutePath + ".temp")
+                val org = File(file.absolutePath + ".org")
+
+                write(temp, data)
+
+                file.renameTo(org)
+                temp.renameTo(file)
+                org.delete()
+            } catch (ex: IOException) {
+                ex.printStackTrace()
+            }
+        } else {
             var stream: FileOutputStream? = null
             var channel: FileChannel? = null
             var lock: FileLock? = null
@@ -158,7 +187,35 @@ object FileMaster {
                 channel?.close()
                 stream?.close()
             }
+        }
+    }
 
+    fun write(file: File, stream: InputStream, cancelSignal: CancellationSignal) {
+        val size = 4 * 1024
+        val buffer = ByteArray(size)
+        var len = 0
+
+        var output: FileOutputStream? = null
+        var channel: FileChannel? = null
+        var lock: FileLock? = null
+
+        try {
+            output = file.outputStream()
+            channel = output.channel
+            lock = channel.lock()
+
+            while (stream.read(buffer, 0, size).also { len = it } > 0) {
+                if (cancelSignal.isCanceled) break
+                output.write(buffer, 0, len)
+            }
+        }
+        catch (ex: IOException) {
+            ex.printStackTrace()
+        }
+        finally {
+            if (lock != null && lock.isValid) lock.release()
+            channel?.close()
+            output?.close()
         }
     }
 }

@@ -170,10 +170,9 @@ class DownloadTaskImpl(
 
 object DownloadMaster {
     private val threadCount = Runtime.getRuntime().availableProcessors()
-    private val processingPool = Executors.newFixedThreadPool(threadCount)
     private val downloadPool = Executors.newFixedThreadPool(threadCount)
 
-    fun download(
+    suspend fun download(
         epId: Int,
         fileName: String,
         track: AnimeTrack,
@@ -181,46 +180,41 @@ object DownloadMaster {
     ): AniResult<DownloadTask> {
         val result = AniResult<DownloadTask>()
 
-        processingPool.execute {
-            var video: VideoFile? = null
-            var subtitle: Subtitle? = null
-            do {
-                try {
-                    runBlocking {
-                        val v = StalkMedia.Anime.getEpisodeLinks(epId, track, true)
-                        video =
-                            if (quality == VideoQuality.HD) v.hd
-                            else v.uhd
-                        subtitle = v.subtitle[0]
-                    }
-                }
-                catch (ex: IOException) {
-                    ex.printStackTrace()
-                    break;
-                }
-            } while (video == null)
-
-            video?.let {
-
-                val task = DownloadTaskImpl(
-                    "${quality.value}-${track.value}_$fileName",
-                    episodeId = epId,
-                    duration = it.files.utilize(0f) { i, r -> r + i.length },
-                    links = it.files.mapIndexed() { i, x ->
-                        DownloadTaskModel(
-                            url = x.url,
-                            isDownloaded = false,
-                            length = x.length,
-                            file = UUID.randomUUID().toString(),
-                            order = i,
-                        )
-                    },
-                    subtitle = subtitle?.url ?: "",
-                    workerThread = downloadPool
-                )
-
-                result.pass(task)
+        var video: VideoFile? = null
+        var subtitle: Subtitle? = null
+        do {
+            try {
+                val v = StalkMedia.Anime.getEpisodeLinks(epId, track, true)
+                video =
+                    if (quality == VideoQuality.HD) v.hd
+                    else v.uhd
+                subtitle = v.subtitle[0]
+            } catch (ex: IOException) {
+                ex.printStackTrace()
+                break;
             }
+        } while (video == null)
+
+        video?.let {
+
+            val task = DownloadTaskImpl(
+                "${quality.value}-${track.value}_$fileName",
+                episodeId = epId,
+                duration = it.files.utilize(0f) { i, r -> r + i.length },
+                links = it.files.mapIndexed() { i, x ->
+                    DownloadTaskModel(
+                        url = x.url,
+                        isDownloaded = false,
+                        length = x.length,
+                        file = UUID.randomUUID().toString(),
+                        order = i,
+                    )
+                },
+                subtitle = subtitle?.url ?: "",
+                workerThread = downloadPool
+            )
+
+            result.pass(task)
         }
 
         return result

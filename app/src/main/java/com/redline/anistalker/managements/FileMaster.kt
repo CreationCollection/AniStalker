@@ -3,6 +3,7 @@ package com.redline.anistalker.managements
 import android.content.Context
 import androidx.core.os.CancellationSignal
 import com.redline.anistalker.managements.UserData.watchlist
+import com.redline.anistalker.managements.downloadSystem.DownloadTask
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
 import com.redline.anistalker.models.AnimeDownloadContentInfo
@@ -33,6 +34,7 @@ import java.io.FilenameFilter
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
+import java.io.OutputStream
 import java.io.OutputStreamWriter
 import java.nio.channels.FileChannel
 import java.nio.channels.FileLock
@@ -54,7 +56,6 @@ object FileMaster {
     fun initialize(context: Context) {
         baseLocation = context.filesDir
     }
-
 
 
     fun readAllAnimeCards(): List<AnimeCard> {
@@ -140,7 +141,88 @@ object FileMaster {
         val data = episodeDownload.toJSON().toString()
         write(file, data)
     }
+
+    fun write(downloadTask: DownloadTask) {
+        val file = File(
+            baseLocation,
+            downloads.combineAsPath(downloadSources, downloadTask.episodeId.toString())
+        )
+        val data = downloadTask.toString()
+        write(file, data)
+    }
+
+    fun writeDownloadSegment(
+        uid: String,
+        stream: InputStream,
+        cancelSignal: CancellationSignal,
+        callback: (length: Long) -> Unit,
+    ) {
+        val file = File(
+            baseLocation,
+            downloads.combineAsPath(downloadSegments, uid)
+        )
+        write(file, stream, cancelSignal, callback = callback)
+    }
     // endregion
+
+
+    fun deleteDownloadSegments(segments: List<String>) {
+        segments.forEach {
+            val file = File(
+                baseLocation,
+                downloads.combineAsPath(downloadSegments, it)
+            )
+            delete(file)
+        }
+    }
+
+    fun segmentsIntoFile(links: List<String>, filename: String, callback: (length: Long) -> Unit) {
+        val org = File("".combineAsPath(filename) + ".ts")
+        val target = File("".combineAsPath(filename) + ".stalk.lock")
+
+        val size = 4 * 1024
+        val buffer = ByteArray(size)
+        var len = 0
+
+        var output: FileOutputStream? = null
+        var channel: FileChannel? = null
+        var lock: FileLock? = null
+
+        try {
+            output = target.outputStream()
+            channel = output.channel
+            lock = channel.lock()
+
+            links.forEach {
+                val stream = File(
+                    baseLocation,
+                    downloads.combineAsPath(downloadSegments, it)
+                ).inputStream()
+
+                while (stream.read(buffer, 0, size).also { l -> len = l } > 0) {
+                    output.write(buffer, 0, len)
+                    callback(len.toLong())
+                }
+
+                stream.close()
+            }
+        }
+        catch (ex: IOException) {
+            ex.printStackTrace()
+        }
+        finally {
+            if (lock != null && lock.isValid) lock.release()
+            channel?.close()
+            output?.close()
+        }
+
+        target.renameTo(org)
+    }
+
+
+    fun delete(file: File) {
+        file.delete()
+    }
 
     fun read(file: File): String {
         val reader = BufferedReader(InputStreamReader(file.inputStream()))
@@ -190,7 +272,12 @@ object FileMaster {
         }
     }
 
-    fun write(file: File, stream: InputStream, cancelSignal: CancellationSignal) {
+    fun write(
+        file: File,
+        stream: InputStream,
+        cancelSignal: CancellationSignal,
+        callback: (length: Long) -> Unit,
+    ) {
         val size = 4 * 1024
         val buffer = ByteArray(size)
         var len = 0
@@ -207,12 +294,11 @@ object FileMaster {
             while (stream.read(buffer, 0, size).also { len = it } > 0) {
                 if (cancelSignal.isCanceled) break
                 output.write(buffer, 0, len)
+                callback(len.toLong())
             }
-        }
-        catch (ex: IOException) {
+        } catch (ex: IOException) {
             ex.printStackTrace()
-        }
-        finally {
+        } finally {
             if (lock != null && lock.isValid) lock.release()
             channel?.close()
             output?.close()

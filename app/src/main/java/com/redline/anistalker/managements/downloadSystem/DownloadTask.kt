@@ -17,5 +17,8 @@ interface DownloadTask {
     fun cancel()
     fun restart()
 
+    fun onStatusChange(callback: (DownloadStatus) -> Unit)
+    fun removeStatusChangeListener(callback: (DownloadStatus) -> Unit)
+
     override fun toString(): String
 }

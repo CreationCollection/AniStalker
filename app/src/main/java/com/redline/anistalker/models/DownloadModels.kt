@@ -2,11 +2,14 @@ package com.redline.anistalker.models
 
 
 enum class DownloadStatus(val index: Int) {
+    PROCESSING(-1),
     RUNNING(0),
     PAUSED(1),
     CANCELLED(2),
     WAITING(3),
     NETWORK_WAITING(4),
+    WRITING(5),
+    COMPLETED(10)
 }
 
 data class AnimeShort(

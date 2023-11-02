@@ -6,7 +6,9 @@ import com.redline.anistalker.managements.FileMaster
 import com.redline.anistalker.managements.StalkMedia
 import com.redline.anistalker.managements.downloadSystem.DownloadTask
 import com.redline.anistalker.managements.helper.Net
+import com.redline.anistalker.managements.helper.Net.put
 import com.redline.anistalker.models.AniError
+import com.redline.anistalker.models.AniErrorCode
 import com.redline.anistalker.models.AniResult
 import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.DownloadStatus
@@ -21,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -42,26 +45,50 @@ class DownloadTaskImpl(
     override val fileName: String,
     override val episodeId: Int,
     override val duration: Float,
+    override val track: AnimeTrack,
+    override val quality: VideoQuality,
     private val links: List<DownloadTaskModel>,
     private val subtitle: String,
-    private val workerThread: ExecutorService,
 ) : DownloadTask {
+
+    constructor(
+        fileName: String,
+        episodeId: Int,
+        duration: Float,
+        track: AnimeTrack,
+        quality: VideoQuality,
+        size: Long,
+        status: DownloadStatus,
+        links: List<DownloadTaskModel>,
+        subtitle: String,
+    ): this(fileName, episodeId, duration, track, quality, links, subtitle) {
+        _size = size
+        _status = status
+    }
+
     private var _status = DownloadStatus.PROCESSING
+    private var _size: Long = 0L
     private var _downloadedSize = AtomicLong(0L)
     private var _downloadedDuration = AtomicDouble(0.0)
     private var _downloadSpeed = 0L
 
     private var _cancelSignal: CancellationSignal? = null
     private var _downloadPool: ExecutorService? = null
-    private val statusListeners = mutableListOf<(DownloadStatus) -> Unit>()
+    private val statusListeners = mutableListOf<DownloadTask.(DownloadStatus) -> Unit>()
 
     override fun status() = _status
+
+    override fun size() = _size
 
     override fun downloadedSize() = _downloadedSize.get()
 
     override fun downloadedDuration() = _downloadedDuration.get().toFloat()
 
     override fun downloadSpeed() = _downloadSpeed
+
+    override fun wait() {
+        statusChange(DownloadStatus.WAITING)
+    }
 
     override fun start() {
         statusChange(DownloadStatus.WAITING)
@@ -80,31 +107,43 @@ class DownloadTaskImpl(
         _cancelSignal?.cancel()
         _cancelSignal = null
 
-        statusChange(DownloadStatus.CANCELLED)
-
         _downloadedDuration.set(0.0)
         _downloadSpeed = 0
         _downloadedSize.set(0L)
 
-        FileMaster.deleteDownloadSegments(links.map { it.file })
+        cleanUp()
+        statusChange(DownloadStatus.CANCELLED)
     }
 
-    override fun restart() {
-        cancel()
-        start()
-    }
-
-    override fun onStatusChange(callback: (DownloadStatus) -> Unit) {
+    override fun onStatusChange(callback: DownloadTask.(DownloadStatus) -> Unit) {
         statusListeners.add(callback)
     }
 
-    override fun removeStatusChangeListener(callback: (DownloadStatus) -> Unit) {
+    override fun removeStatusChangeListener(callback: DownloadTask.(DownloadStatus) -> Unit) {
         statusListeners.remove(callback)
     }
 
     override fun toString(): String {
         return JSONObject().apply {
+            put("episodeId", episodeId)
             put("filename", fileName)
+            put("duration", duration.toDouble())
+            put("size", _size)
+            put("status", _status.name)
+            put("track", track.name)
+            put("quality", quality.name)
+            put("subtitle", subtitle)
+            put("links", JSONArray().apply {
+                links.forEach {
+                    put(JSONObject().apply {
+                        put("url", it.url)
+                        put("isDownloaded", it.isDownloaded)
+                        put("file", it.file)
+                        put("length", it.length)
+                        put("order", it.order)
+                    })
+                }
+            })
         }.toString(4)
     }
 
@@ -114,72 +153,78 @@ class DownloadTaskImpl(
     }
 
     private fun run() {
-        workerThread.execute {
-            _downloadPool = Executors.newFixedThreadPool(4)
-            val cancelSignal = _cancelSignal ?: CancellationSignal()
-            var downloadedPerUnit = 0L
+        _downloadPool = Executors.newFixedThreadPool(4)
+        val cancelSignal = _cancelSignal ?: CancellationSignal()
+        var downloadedPerUnit = 0L
+
+        statusChange(DownloadStatus.RUNNING)
+        links.forEach {
+            if (!it.isDownloaded) _downloadPool?.execute {
+                if (!cancelSignal.isCanceled) {
+                    try {
+                        val stream = Net.getStream(it.url)
+                        FileMaster.writeDownloadSegment(it.file, stream, cancelSignal) { len ->
+                            downloadedPerUnit += len
+                            _downloadedSize.addAndGet(len)
+                        }
+                        _downloadedDuration.addAndGet(it.length.toDouble())
+                    } catch (ex: AniError) {
+                        ex.printStackTrace()
+                    } catch (ex: IOException) {
+                        ex.printStackTrace()
+                    }
+                }
+
+            } ?: throw AniError(AniErrorCode.INVALID_VALUE)
+        }
+
+        _downloadPool?.shutdown()
+        while (_downloadPool?.isTerminated != true) {
+            try {
+                _downloadPool?.awaitTermination(100, TimeUnit.MILLISECONDS)
+            } catch (_: Exception) {
+            }
+
+            _downloadSpeed = downloadedPerUnit * 10
+            downloadedPerUnit = 0
 
             statusChange(DownloadStatus.RUNNING)
-            links.forEach {
-                if (!it.isDownloaded) _downloadPool?.execute {
-                    if (!cancelSignal.isCanceled) {
-                        try {
-                            val stream = Net.getStream(it.url)
-                            FileMaster.writeDownloadSegment(it.file, stream, cancelSignal) { len ->
-                                downloadedPerUnit += len
-                                _downloadedSize.addAndGet(len)
-                            }
-                            _downloadedDuration.addAndGet(it.length.toDouble())
-                        } catch (ex: AniError) {
-                            ex.printStackTrace()
-                        } catch (ex: IOException) {
-                            ex.printStackTrace()
-                        }
-                    }
 
-                }
-            }
-
-            _downloadPool?.shutdown()
-            while (_downloadPool?.isTerminated != true) {
-                try {
-                    _downloadPool?.awaitTermination(100, TimeUnit.MILLISECONDS)
-                } catch (_: Exception) {
-                }
-
-                _downloadSpeed = downloadedPerUnit * 10
-                downloadedPerUnit = 0
-            }
-
-            if (!cancelSignal.isCanceled) {
-                cancelSignal.cancel()
-                statusChange(DownloadStatus.WRITING)
-                _downloadedSize.set(0L)
-
-                FileMaster.segmentsIntoFile(links.map { it.file }, fileName) {
-                    _downloadedSize.addAndGet(it)
-                }
-
-                FileMaster.deleteDownloadSegments(links.map { it.file })
-
-                statusChange(DownloadStatus.COMPLETED)
-            }
+            FileMaster.write(this)
         }
+
+        if (!cancelSignal.isCanceled) {
+            cancelSignal.cancel()
+            statusChange(DownloadStatus.WRITING)
+            _size = _downloadedSize.get()
+            _downloadedSize.set(0L)
+
+            FileMaster.segmentsIntoFile(links.map { it.file }, fileName) {
+                _downloadedSize.addAndGet(it)
+            }
+
+            cleanUp()
+            statusChange(DownloadStatus.COMPLETED)
+        }
+
+    }
+
+    private fun cleanUp() {
+        FileMaster.deleteDownloadSegments(links.map { it.file })
+        FileMaster.delete(this)
+
+        statusListeners.clear()
     }
 }
 
 object DownloadMaster {
-    private val threadCount = Runtime.getRuntime().availableProcessors()
-    private val downloadPool = Executors.newFixedThreadPool(threadCount)
 
     suspend fun download(
         epId: Int,
         fileName: String,
         track: AnimeTrack,
         quality: VideoQuality
-    ): AniResult<DownloadTask> {
-        val result = AniResult<DownloadTask>()
-
+    ): DownloadTask {
         var video: VideoFile? = null
         var subtitle: Subtitle? = null
         do {
@@ -195,12 +240,14 @@ object DownloadMaster {
             }
         } while (video == null)
 
-        video?.let {
+        return video?.let {
 
             val task = DownloadTaskImpl(
                 "${quality.value}-${track.value}_$fileName",
                 episodeId = epId,
                 duration = it.files.utilize(0f) { i, r -> r + i.length },
+                track,
+                quality,
                 links = it.files.mapIndexed() { i, x ->
                     DownloadTaskModel(
                         url = x.url,
@@ -211,13 +258,10 @@ object DownloadMaster {
                     )
                 },
                 subtitle = subtitle?.url ?: "",
-                workerThread = downloadPool
             )
 
-            result.pass(task)
-        }
-
-        return result
+            task
+        } ?: throw AniError(AniErrorCode.NOT_FOUND)
     }
 
     fun restoreDownloads(): List<DownloadTask> {
@@ -239,9 +283,12 @@ object DownloadMaster {
                 fileName = json.getString("fileName"),
                 episodeId = json.getInt("epId"),
                 duration = json.getDouble("duration").toFloat(),
+                track = AnimeTrack.valueOf(json.getString("track")),
+                quality = VideoQuality.valueOf(json.getString("quality")),
+                size = json.getLong("size"),
+                status = DownloadStatus.valueOf(json.getString("status")),
                 links = links,
                 subtitle = json.getString("subtitle"),
-                workerThread = downloadPool
             )
         }
 

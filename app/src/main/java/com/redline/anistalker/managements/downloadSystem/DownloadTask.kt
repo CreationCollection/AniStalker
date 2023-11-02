@@ -31,7 +31,7 @@ interface DownloadTask {
     fun downloadedDuration(): Float
     fun downloadSpeed(): Long
 
-    fun wait()
+    fun activate()
     fun start()
     fun stop()
     fun cancel()

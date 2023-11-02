@@ -4,28 +4,19 @@ import androidx.core.os.CancellationSignal
 import com.google.common.util.concurrent.AtomicDouble
 import com.redline.anistalker.managements.FileMaster
 import com.redline.anistalker.managements.StalkMedia
-import com.redline.anistalker.managements.downloadSystem.DownloadTask
 import com.redline.anistalker.managements.helper.Net
-import com.redline.anistalker.managements.helper.Net.put
 import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.AniErrorCode
-import com.redline.anistalker.models.AniResult
 import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.Subtitle
-import com.redline.anistalker.models.Video
 import com.redline.anistalker.models.VideoFile
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.utils.getSafeFloat
 import com.redline.anistalker.utils.map
 import com.redline.anistalker.utils.utilize
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ExecutorService
@@ -86,7 +77,7 @@ class DownloadTaskImpl(
 
     override fun downloadSpeed() = _downloadSpeed
 
-    override fun wait() {
+    override fun activate() {
         statusChange(DownloadStatus.WAITING)
     }
 

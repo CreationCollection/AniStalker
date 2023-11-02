@@ -1,17 +1,13 @@
 package com.redline.anistalker.services
 
 import android.Manifest
-import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -27,7 +23,6 @@ import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.VideoQuality
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -235,7 +230,7 @@ class DownloadService : Service() {
 
     private fun processDownload(task: DownloadTask) {
         task.onStatusChange { broadCastDownloadTask(this) }
-        task.wait()
+        task.activate()
 
         downloadingFlow.execute {
             val runStateIntent = Intent(this@DownloadService, DownloadService::class.java).apply {

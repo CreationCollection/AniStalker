@@ -64,19 +64,19 @@ data class AnimeDownload (
     val ongoingContent: List<Int> = emptyList()
 )
 
-data class MangaDownload (
-    val id: String = "",
-    val title: String = "Manga Title",
-    val image: String = "",
-    val chapters: List<MangaChapter> = listOf(),
-    val downloadableChapters: List<String> = listOf(),
-    val downloadedChapters: List<String> = listOf(),
-)
-
-data class MangaDownloadContent (
-    val id: String = "",
-    val downloaded: Boolean = false,
-    val totalPages: Int = 0,
-    val downloadedPages: Int = 0,
-    val status: DownloadStatus = DownloadStatus.WAITING,
-)
+//data class MangaDownload (
+//    val id: String = "",
+//    val title: String = "Manga Title",
+//    val image: String = "",
+//    val chapters: List<MangaChapter> = listOf(),
+//    val downloadableChapters: List<String> = listOf(),
+//    val downloadedChapters: List<String> = listOf(),
+//)
+//
+//data class MangaDownloadContent (
+//    val id: String = "",
+//    val downloaded: Boolean = false,
+//    val totalPages: Int = 0,
+//    val downloadedPages: Int = 0,
+//    val status: DownloadStatus = DownloadStatus.WAITING,
+//)

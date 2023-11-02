@@ -9,7 +9,7 @@ class LibraryViewModel() : ViewModel() {
 
     val watchlist = UserData.watchlist
     val animeList = UserData.animeList
-    val mangaList = UserData.mangaList
+//    val mangaList = UserData.mangaList
 
     fun sync() {
 

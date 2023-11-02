@@ -1,13 +1,11 @@
 package com.redline.anistalker.managements
 
+import com.redline.anistalker.managements.helper.AniLinks
 import com.redline.anistalker.managements.helper.AnimeMediaExtractor.extractEpisodeDetails
 import com.redline.anistalker.managements.helper.AnimeMediaExtractor.extractStreamingVideo
 import com.redline.anistalker.managements.helper.AnimeMediaExtractor.makeAnime
 import com.redline.anistalker.managements.helper.AnimeMediaExtractor.makeAnimeCard
 import com.redline.anistalker.managements.helper.AnimeMediaExtractor.makeAnimeSpotlight
-import com.redline.anistalker.managements.helper.AniLinks
-import com.redline.anistalker.managements.helper.MangaMediaExtractor.makeMangaCard
-import com.redline.anistalker.managements.helper.MangaMediaExtractor.extractMangaDetails
 import com.redline.anistalker.managements.helper.Net
 import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.AniErrorCode
@@ -19,19 +17,13 @@ import com.redline.anistalker.models.AnimeSearchFilter
 import com.redline.anistalker.models.AnimeSpotlight
 import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.IMediaPage
-import com.redline.anistalker.models.MangaCard
-import com.redline.anistalker.models.MangaChapter
 import com.redline.anistalker.models.Video
 import com.redline.anistalker.utils.getSafeInt
-import com.redline.anistalker.utils.getSafeString
-import com.redline.anistalker.utils.getStringOrNull
 import com.redline.anistalker.utils.map
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import com.redline.anistalker.models.Anime as AnimeFull
-import com.redline.anistalker.models.Manga as MangaFull
 
 private class MediaPage<T>(val url: String, initialPage: Int = 0, val factory: (JSONObject) -> T) :
     IMediaPage<T> {
@@ -155,60 +147,60 @@ object StalkMedia {
         }
     }
 
-    object Manga {
-
-        fun search(query: String): IMediaPage<MangaCard> =
-            MediaPage(AniLinks.Manga.makeMangaSearchLink(query)) { makeMangaCard(it) }
-
-        fun getTrendingManga(): IMediaPage<MangaCard> =
-            MediaPage(AniLinks.Manga.trending) { makeMangaCard(it) }
-
-        fun getHentaiManga(): IMediaPage<MangaCard> =
-            MediaPage(AniLinks.Manga.hentai) { makeMangaCard(it) }
-
-        suspend fun getMangaDetail(mangaId: String): MangaFull {
-            return withContext(Dispatchers.IO) {
-                val json = fetchData(AniLinks.Manga.makeMangaDetailsLink(mangaId))
-                extractMangaDetails(json.getJSONObject("data"))
-            }
-        }
-
-        suspend fun getMangaChapters(mangaId: String): List<MangaChapter> {
-            return withContext(Dispatchers.IO) {
-                val json = fetchData(AniLinks.Manga.makeChaptersLink(mangaId))
-                json.getJSONArray("data").map {
-
-                }
-
-                delay(1000)
-                mutableListOf<MangaChapter>().apply {
-                    for (i in 1..20) {
-                        add(MangaChapter())
-                    }
-                }
-            }
-        }
-
-        suspend fun getMangaPages(chId: String): List<String> {
-            return withContext(Dispatchers.IO) {
-                delay(1000)
-                mutableListOf<String>().apply {
-                    for (i in 1..20) {
-                        add("")
-                    }
-                }
-            }
-        }
-
-        suspend fun getMangaImages(malId: Int): List<String> {
-            return withContext(Dispatchers.IO) {
-                delay(2000)
-                mutableListOf<String>().apply {
-                    for (i in 1..10) {
-                        add("")
-                    }
-                }
-            }
-        }
-    }
+//    object Manga {
+//
+//        fun search(query: String): IMediaPage<MangaCard> =
+//            MediaPage(AniLinks.Manga.makeMangaSearchLink(query)) { makeMangaCard(it) }
+//
+//        fun getTrendingManga(): IMediaPage<MangaCard> =
+//            MediaPage(AniLinks.Manga.trending) { makeMangaCard(it) }
+//
+//        fun getHentaiManga(): IMediaPage<MangaCard> =
+//            MediaPage(AniLinks.Manga.hentai) { makeMangaCard(it) }
+//
+//        suspend fun getMangaDetail(mangaId: String): MangaFull {
+//            return withContext(Dispatchers.IO) {
+//                val json = fetchData(AniLinks.Manga.makeMangaDetailsLink(mangaId))
+//                extractMangaDetails(json.getJSONObject("data"))
+//            }
+//        }
+//
+//        suspend fun getMangaChapters(mangaId: String): List<MangaChapter> {
+//            return withContext(Dispatchers.IO) {
+//                val json = fetchData(AniLinks.Manga.makeChaptersLink(mangaId))
+//                json.getJSONArray("data").map {
+//
+//                }
+//
+//                delay(1000)
+//                mutableListOf<MangaChapter>().apply {
+//                    for (i in 1..20) {
+//                        add(MangaChapter())
+//                    }
+//                }
+//            }
+//        }
+//
+//        suspend fun getMangaPages(chId: String): List<String> {
+//            return withContext(Dispatchers.IO) {
+//                delay(1000)
+//                mutableListOf<String>().apply {
+//                    for (i in 1..20) {
+//                        add("")
+//                    }
+//                }
+//            }
+//        }
+//
+//        suspend fun getMangaImages(malId: Int): List<String> {
+//            return withContext(Dispatchers.IO) {
+//                delay(2000)
+//                mutableListOf<String>().apply {
+//                    for (i in 1..10) {
+//                        add("")
+//                    }
+//                }
+//            }
+//        }
+//    }
 }

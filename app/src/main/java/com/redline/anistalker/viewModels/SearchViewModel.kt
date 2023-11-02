@@ -1,50 +1,45 @@
 package com.redline.anistalker.viewModels
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.redline.anistalker.managements.StalkMedia
 import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.AniErrorCode
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeSearchFilter
 import com.redline.anistalker.models.IMediaPage
-import com.redline.anistalker.models.MangaCard
-import com.redline.anistalker.utils.fill
 import com.redline.anistalker.utils.fillList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.random.Random
 
 class SearchViewModel() : ViewModel() {
     private var jobScope = newJobScope()
 
+//    private val _mangaList = MutableStateFlow(listOf<MangaCard>())
+//    val mangaList = _mangaList.asStateFlow()
+//    private val _mangaImages = MutableStateFlow(listOf<String?>())
+//    val mangaImages = _mangaImages.asStateFlow()
+//    private val _isMangaLoading = MutableStateFlow(false)
+//    val isMangaLoading = _isMangaLoading.asStateFlow()
+
     private val _animeList = MutableStateFlow(listOf<AnimeCard?>())
     val animeList = _animeList.asStateFlow()
-    private val _mangaList = MutableStateFlow(listOf<MangaCard>())
-    val mangaList = _mangaList.asStateFlow()
-    private val _mangaImages = MutableStateFlow(listOf<String?>())
-    val mangaImages = _mangaImages.asStateFlow()
-    private val _isMangaLoading = MutableStateFlow(false)
-    val isMangaLoading = _isMangaLoading.asStateFlow()
     private val _error = MutableStateFlow<Pair<AniErrorCode, String>?>(null)
     val error = _error.asStateFlow()
 
     private var animePage: IMediaPage<AnimeCard>? = null
-    private var mangaPage: IMediaPage<MangaCard>? = null
+//    private var mangaPage: IMediaPage<MangaCard>? = null
 
     init {
         jobScope.launch {
             animePage = StalkMedia.Anime.filter(AnimeSearchFilter())
             loadNextAnimePage()
 
-            mangaPage = StalkMedia.Manga.getTrendingManga()
-            loadNextMangaPage()
+//            mangaPage = StalkMedia.Manga.getTrendingManga()
+//            loadNextMangaPage()
         }
     }
 
@@ -99,24 +94,24 @@ class SearchViewModel() : ViewModel() {
         }
     }
 
-    fun loadNextMangaPage() {
-        mangaPage?.run {
-            jobScope.launch {
-                if (isLoading()) return@launch
+//    fun loadNextMangaPage() {
+//        mangaPage?.run {
+//            jobScope.launch {
+//                if (isLoading()) return@launch
+//
+//                _isMangaLoading.value = true
+//                delay(Random.nextLong(1000, 3000))
+//                val mangas = nextPage()
+//                updateMangaStateValue(mangas)
+//                loadMangaImages(mangas)
+//                _isMangaLoading.value = false
+//            }
+//        }
+//    }
 
-                _isMangaLoading.value = true
-                delay(Random.nextLong(1000, 3000))
-                val mangas = nextPage()
-                updateMangaStateValue(mangas)
-                loadMangaImages(mangas)
-                _isMangaLoading.value = false
-            }
-        }
-    }
-
-    private fun loadMangaImages(mangas: List<MangaCard>) {
-        _mangaImages.value = _mangaImages.value.fill(mangas.size) { null }
-    }
+//    private fun loadMangaImages(mangas: List<MangaCard>) {
+//        _mangaImages.value = _mangaImages.value.fill(mangas.size) { null }
+//    }
 
     private fun updateAnimeStateValue(values: List<AnimeCard?>) {
         _animeList.run {
@@ -124,11 +119,11 @@ class SearchViewModel() : ViewModel() {
         }
     }
 
-    private fun updateMangaStateValue(values: List<MangaCard>) {
-        _mangaList.run {
-            value = values.toCollection(value.filterNotNull().toMutableList())
-        }
-    }
+//    private fun updateMangaStateValue(values: List<MangaCard>) {
+//        _mangaList.run {
+//            value = values.toCollection(value.filterNotNull().toMutableList())
+//        }
+//    }
 
     private fun emptyAnimeList(): List<AnimeCard?> {
         return fillList(10) { null }

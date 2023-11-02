@@ -48,7 +48,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.common.primitives.Floats.min
 import com.redline.anistalker.R
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
@@ -66,11 +65,9 @@ import com.redline.anistalker.ui.theme.dark_background
 import com.redline.anistalker.ui.theme.secondary_background
 import com.redline.anistalker.utils.toDurationFormat
 import com.redline.anistalker.utils.toSizeFormat
-import java.lang.Float.max
 import kotlin.math.ceil
 import kotlin.random.Random
 import com.redline.anistalker.models.AnimeCard as AnimeHalf
-import com.redline.anistalker.models.AnimeStatus as AnimeStatusModel
 
 
 @Composable
@@ -1064,7 +1061,7 @@ fun MediaEventView(
     onDownload: ((eventId: Int) -> Unit)? = null,
     onClick: ((eventId: Int) -> Unit)? = null,
 ) {
-    val isManga = event is Event.MangaEvent
+    val isManga = /*event is Event.MangaEvent*/ false
     val bg = secondary_background
 
     val heading = event.heading
@@ -1080,14 +1077,14 @@ fun MediaEventView(
             }
         }
 
-        is Event.MangaEvent -> {
-            contentNum = event.chapterNum
-            when (event.type) {
-                EventType.NEW_CHAPTER -> "Episode"
-                EventType.MANGA_COMPLETE -> "Total Episodes"
-                else -> "Unknown"
-            }
-        }
+//        is Event.MangaEvent -> {
+//            contentNum = event.chapterNum
+//            when (event.type) {
+//                EventType.NEW_CHAPTER -> "Episode"
+//                EventType.MANGA_COMPLETE -> "Total Episodes"
+//                else -> "Unknown"
+//            }
+//        }
     }
 
     Column(
@@ -1344,11 +1341,11 @@ private fun P_EventView_Anime() {
 @Composable
 private fun P_EventView_Manga() {
     AniStalkerTheme {
-        MediaEventView(
-            event = Event.MangaEvent().apply {
-                type = EventType.MANGA_COMPLETE
-            }
-        )
+//        MediaEventView(
+//            event = Event.MangaEvent().apply {
+//                type = EventType.MANGA_COMPLETE
+//            }
+//        )
     }
 }
 

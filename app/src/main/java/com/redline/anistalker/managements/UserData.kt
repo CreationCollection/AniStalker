@@ -8,10 +8,6 @@ import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.EpisodeDownload
 import com.redline.anistalker.models.Event
 import com.redline.anistalker.models.HistoryEntry
-import com.redline.anistalker.models.MangaCard
-import com.redline.anistalker.models.MangaChapter
-import com.redline.anistalker.models.MangaDownload
-import com.redline.anistalker.models.MangaDownloadContent
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
@@ -38,18 +34,11 @@ object UserData {
         })
     val animeList = _animeList.asStateFlow()
 
-    private val _mangaList =
-        MutableStateFlow<List<MangaCard>>(mutableListOf<MangaCard>().apply {
-            for (i in 0..16) {
-                add(MangaCard())
-            }
-        })
-    val mangaList = _mangaList.asStateFlow()
-
     private val _eventList =
         MutableStateFlow<List<Event>>(mutableListOf<Event>().apply {
             for (i in 0..100) {
-                add(if (Random.nextBoolean()) Event.AnimeEvent() else Event.MangaEvent())
+//                add(if (Random.nextBoolean()) Event.AnimeEvent() else Event.MangaEvent())
+                add(Event.AnimeEvent())
             }
         })
     val eventList = _eventList.asStateFlow()
@@ -58,40 +47,25 @@ object UserData {
         MutableStateFlow<List<AnimeDownload>>(mutableListOf<AnimeDownload>().apply {
             for (i in 0..10) {
                 add(AnimeDownload(
-                    content = mutableMapOf<Int, List<EpisodeDownload>>().apply { 
+                    content = mutableMapOf<Int, List<Int>>().apply {
                         for (x in 1..10) {
-                            put(x, mutableListOf<EpisodeDownload>().apply { 
+                            put(x, mutableListOf<Int>().apply {
                                 for (y in 1..Random.nextInt(50)) {
-                                    add(EpisodeDownload(id = y))
+                                    add(y)
                                 }
                             })
                         }
                     },
-                    ongoingContent = mutableListOf<EpisodeDownload>().apply {
+                    ongoingContent = mutableListOf<Int>().apply {
                         for (x in 0..4) {
-                            add(EpisodeDownload())
+                            add(x)
+//                            add(EpisodeDownload())
                         }
                     }
                 ))
             }
         })
     val animeDownload = _animeDownload.asStateFlow()
-
-    private val _mangaDownload =
-        MutableStateFlow<List<MangaDownload>>(mutableListOf<MangaDownload>().apply {
-            for (i in 0..6) {
-                add(
-                    MangaDownload(
-                        chapters = mutableListOf<MangaChapter>().apply {
-                            for (x in 0..10) {
-                                add(MangaChapter())
-                            }
-                        }
-                    )
-                )
-            }
-        })
-    val mangaDownload = _mangaDownload.asStateFlow()
 
     fun getCurrentWatchAnime(): StateFlow<Anime> {
         return MutableStateFlow(Anime())
@@ -237,68 +211,6 @@ object UserData {
             } catch (_: Exception) {
             }
             result.pass(AnimeDownload())
-        }.start()
-        return result
-    }
-
-    fun addManga(mangaId: String): AniResult<MangaCard> {
-        val result = AniResult<MangaCard>()
-        Thread {
-            try {
-                Thread.sleep(1000)
-            } catch (_: Exception) {
-            }
-            result.pass(MangaCard())
-        }.start()
-        return result
-    }
-
-    fun removeManga(mangaId: String): AniResult<MangaCard> {
-        val result = AniResult<MangaCard>()
-        Thread {
-            try {
-                Thread.sleep(1000)
-            } catch (_: Exception) {
-            }
-            result.pass(MangaCard())
-        }.start()
-        return result
-    }
-
-    fun addChapterDownloads(
-        mangaId: String,
-        chapterId: List<String>
-    ): AniResult<List<MangaDownloadContent>> {
-        val result = AniResult<List<MangaDownloadContent>>()
-        Thread {
-            try {
-                Thread.sleep(1000)
-            } catch (_: Exception) {
-            }
-            result.pass(mutableListOf<MangaDownloadContent>().apply {
-                addAll(chapterId.map {
-                    MangaDownloadContent(id = it)
-                })
-            })
-        }.start()
-        return result
-    }
-
-    fun removeChapterDownloads(
-        mangaId: String,
-        chapterId: List<String>
-    ): AniResult<List<MangaDownloadContent>> {
-        val result = AniResult<List<MangaDownloadContent>>()
-        Thread {
-            try {
-                Thread.sleep(1000)
-            } catch (_: Exception) {
-            }
-            result.pass(mutableListOf<MangaDownloadContent>().apply {
-                addAll(chapterId.map {
-                    MangaDownloadContent(id = it)
-                })
-            })
         }.start()
         return result
     }

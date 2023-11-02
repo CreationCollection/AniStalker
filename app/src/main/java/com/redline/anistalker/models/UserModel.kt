@@ -6,7 +6,7 @@ enum class EventType(val index: Int) {
     NEW_EPISODE(1),
     NEW_CHAPTER(2),
     ANIME_COMPLETE(3),
-    MANGA_COMPLETE(4)
+//    MANGA_COMPLETE(4)
 }
 
 sealed class Event(
@@ -21,18 +21,18 @@ sealed class Event(
         var episodeId: Int = 0,
     ) : Event()
 
-    data class MangaEvent(
-        var mangaId: String = "",
-        var chapterNum: Int = 0,
-        var chapterId: String = "",
-    ) : Event()
+//    data class MangaEvent(
+//        var mangaId: String = "",
+//        var chapterNum: Int = 0,
+//        var chapterId: String = "",
+//    ) : Event()
 
     val heading: String = when (type) {
         EventType.ALL -> "General Event Triggered"
         EventType.NEW_EPISODE -> "New Episode Released"
         EventType.NEW_CHAPTER -> "New Chapter Released"
         EventType.ANIME_COMPLETE -> "Anime Completed"
-        EventType.MANGA_COMPLETE -> "Manga Completed"
+//        EventType.MANGA_COMPLETE -> "Manga Completed"
     }
 }
 

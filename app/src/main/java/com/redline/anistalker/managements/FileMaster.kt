@@ -176,6 +176,16 @@ object FileMaster {
         }
     }
 
+    fun delete(value: DownloadTask) {
+        val file =
+            File(
+                baseLocation,
+                downloads.combineAsPath(downloadSources, value.episodeId.toString())
+            )
+        delete(file)
+    }
+
+
     fun segmentsIntoFile(links: List<String>, filename: String, callback: (length: Long) -> Unit) {
         val org = File("".combineAsPath(filename) + ".ts")
         val target = File("".combineAsPath(filename) + ".stalk.lock")
@@ -206,11 +216,9 @@ object FileMaster {
 
                 stream.close()
             }
-        }
-        catch (ex: IOException) {
+        } catch (ex: IOException) {
             ex.printStackTrace()
-        }
-        finally {
+        } finally {
             if (lock != null && lock.isValid) lock.release()
             channel?.close()
             output?.close()

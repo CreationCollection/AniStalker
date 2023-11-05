@@ -2,44 +2,34 @@ package com.redline.anistalker.managements
 
 import android.content.Context
 import androidx.core.os.CancellationSignal
-import com.redline.anistalker.managements.UserData.watchlist
 import com.redline.anistalker.managements.downloadSystem.DownloadTask
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
-import com.redline.anistalker.models.AnimeDownloadContentInfo
 import com.redline.anistalker.models.AnimeEpisode
 import com.redline.anistalker.models.AnimeId
-import com.redline.anistalker.models.AnimeShort
 import com.redline.anistalker.models.AnimeTitle
 import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.AnimeType
 import com.redline.anistalker.models.EpisodeDownload
-import com.redline.anistalker.models.OngoingEpisodeDownload
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.VideoRange
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
 import com.redline.anistalker.utils.combineAsPath
+import com.redline.anistalker.utils.getSafeFloat
 import com.redline.anistalker.utils.map
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
-import java.io.FileReader
-import java.io.FilenameFilter
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
-import java.io.OutputStream
 import java.io.OutputStreamWriter
 import java.nio.channels.FileChannel
 import java.nio.channels.FileLock
-import java.util.concurrent.Executors
-import kotlin.reflect.typeOf
 
 object FileMaster {
     private lateinit var baseLocation: File
@@ -128,7 +118,7 @@ object FileMaster {
 
     fun write(animeDownload: AnimeDownload) {
         val file =
-            File(baseLocation, downloads.combineAsPath(downloadEntry, animeDownload.dId.toString()))
+            File(baseLocation, downloads.combineAsPath(downloadEntry, animeDownload.animeId.zoroId.toString()))
         val data = animeDownload.toJSON().toString(4)
         write(file, data)
     }
@@ -448,42 +438,19 @@ private fun JSONObject.toWatchlist(): Watchlist {
 
 private fun AnimeDownload.toJSON(): JSONObject {
     return JSONObject().apply {
-        put("dId", dId)
+        put("animeId", animeId.toJSON())
         put("title", title)
-        put("images", JSONArray(images))
+        put("image", image)
         put("episodes", JSONObject().apply {
             put("total", episodes.total)
             put("sub", episodes.sub)
             put("dub", episodes.dub)
         })
-        put("year", year)
-        put("anime", JSONArray().apply {
-            anime.forEach {
-                put(
-                    JSONObject().apply {
-                        put("id", it.id.toJSON())
-                        put("title", it.title)
-                        put("relation", it.relation)
-                    }
-                )
-            }
-        })
-        put("downloadStats", JSONObject().apply {
-            put("episodes", downloadStats.episodes)
-            put("series", downloadStats.series)
-            put("size", downloadStats.size)
-            put("duration", downloadStats.duration.toDouble())
-        })
+        put("duration", duration)
+        put("size", size)
         put("content", JSONArray().apply {
             content.onEach {
-                put(JSONObject().apply {
-                    put("anime", it.key)
-                    put("episodes", JSONArray().apply {
-                        it.value.forEach { ep ->
-                            put(ep)
-                        }
-                    })
-                })
+                put(it)
             }
         })
         put("ongoingContent", JSONArray().apply {
@@ -496,37 +463,13 @@ private fun AnimeDownload.toJSON(): JSONObject {
 
 private fun JSONObject.toAnimeDownload(): AnimeDownload {
     return AnimeDownload(
-        dId = getInt("dId"),
+        animeId = getJSONObject("animeId").toAnimeId(),
         title = getString("title"),
-        images = getJSONArray("images").map { getString(it) },
+        image = getString("image"),
         episodes = getJSONObject("episodes").toEpisodes(),
-        year = getInt("year"),
-        anime = getJSONArray("anime").map {
-            val obj = getJSONObject(it)
-            AnimeShort(
-                id = obj.getJSONObject("id").toAnimeId(),
-                title = obj.getString("title"),
-                relation = obj.getString("relation")
-            )
-        },
-        downloadStats = getJSONObject("downloadStats").run {
-            AnimeDownloadContentInfo(
-                episodes = getInt("episodes"),
-                series = getInt("series"),
-                size = getLong("size"),
-                duration = getDouble("duration").toFloat()
-            )
-        },
-        content = getJSONArray("content").run {
-            val map = mutableMapOf<Int, List<Int>>()
-            for (i in 0 until length()) {
-                val item = getJSONObject(i)
-                map[item.getInt("anime")] = item.getJSONArray("episodes").map {
-                    getInt(it)
-                }
-            }
-            map
-        },
+        duration = getSafeFloat("duration"),
+        size = getLong("size"),
+        content = getJSONArray("content").map { getInt(it) },
         ongoingContent = getJSONArray("ongoingContent").map { getInt(it) }
     )
 }

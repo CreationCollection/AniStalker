@@ -52,17 +52,31 @@ data class OngoingEpisodeDownload(
     val downloadSpeed: Long = 0L,
 )
 
+//data class AnimeDownload (
+//    val dId: Int = 0,
+//    val title: String = "Anime Download Title",
+//    val images: List<String> = emptyList(),
+//    val episodes: AnimeEpisode = AnimeEpisode(),
+//    val year: Int = 0,
+//    val anime: List<AnimeShort> = emptyList(),
+//    val downloadStats: AnimeDownloadContentInfo = AnimeDownloadContentInfo(),
+//    val content: Map<Int, List<Int>> = emptyMap(),
+//    val ongoingContent: List<Int> = emptyList()
+//)
+
 data class AnimeDownload (
-    val dId: Int = 0,
-    val title: String = "Anime Download Title",
-    val images: List<String> = emptyList(),
+    val animeId: AnimeId = AnimeId(),
+    val title: String = "",
+    val image: String,
     val episodes: AnimeEpisode = AnimeEpisode(),
-    val year: Int = 0,
-    val anime: List<AnimeShort> = emptyList(),
-    val downloadStats: AnimeDownloadContentInfo = AnimeDownloadContentInfo(),
-    val content: Map<Int, List<Int>> = emptyMap(),
-    val ongoingContent: List<Int> = emptyList()
+    val type: AnimeType = AnimeType.ALL,
+    val duration: Float = 0f,
+    val size: Long = 0,
+    val content: List<Int> = emptyList(),
+    val ongoingContent: List<Int> = emptyList(),
 )
+
+
 
 //data class MangaDownload (
 //    val id: String = "",

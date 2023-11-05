@@ -3,7 +3,9 @@ package com.redline.anistalker.viewModels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.redline.anistalker.managements.DownloadManager
+import com.redline.anistalker.managements.UserData
 import com.redline.anistalker.models.AnimeDownload
+import com.redline.anistalker.models.EpisodeDownload
 import com.redline.anistalker.models.OngoingEpisodeDownload
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,17 +17,21 @@ class DownloadDetailViewModel : ViewModel() {
     private val _animeDownload = MutableStateFlow<AnimeDownload?>(null)
     val animeDownload = _animeDownload.asStateFlow()
 
-    fun initializeFor(animeDID: Int) {
+    fun initializeFor(animeId: Int) {
         val temp = currentAnimeId
-        currentAnimeId = animeDID
+        currentAnimeId = animeId
 
         if (temp == null) viewModelScope.launch {
-            DownloadManager.Anime.animeDownloads.collect {
-                it.find { d -> d.dId == currentAnimeId }?.let { d ->
+            UserData.animeDownload.collect {
+                it.find { d -> d.animeId.zoroId == currentAnimeId }?.let { d ->
                     _animeDownload.value = d
                 }
             }
         }
+    }
+
+    fun getContent(episodeId: Int): EpisodeDownload? {
+        return UserData.getDownloadContent(episodeId)
     }
 
     fun getOngoingDownloads(animeDID: Int): StateFlow<List<OngoingEpisodeDownload>>? =

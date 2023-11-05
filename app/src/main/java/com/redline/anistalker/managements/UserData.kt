@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
-import kotlin.random.Random
 
 object UserData {
     private val _watchlist =
@@ -45,27 +44,28 @@ object UserData {
 
     private val _animeDownload =
         MutableStateFlow<List<AnimeDownload>>(mutableListOf<AnimeDownload>().apply {
-            for (i in 0..10) {
+            for (i in 1..10) {
                 add(AnimeDownload(
-                    content = mutableMapOf<Int, List<Int>>().apply {
-                        for (x in 1..10) {
-                            put(x, mutableListOf<Int>().apply {
-                                for (y in 1..Random.nextInt(50)) {
-                                    add(y)
-                                }
-                            })
+                    content = mutableListOf<Int>().apply {
+                        for (x in 1..12) {
+                            add(x)
                         }
                     },
                     ongoingContent = mutableListOf<Int>().apply {
-                        for (x in 0..4) {
+                        for (x in 1..4) {
                             add(x)
-//                            add(EpisodeDownload())
                         }
                     }
                 ))
             }
         })
     val animeDownload = _animeDownload.asStateFlow()
+
+    private val downloadContent = mutableMapOf<Int, EpisodeDownload>()
+
+    fun getDownloadContent(episodeId: Int): EpisodeDownload? {
+        return downloadContent[episodeId]
+    }
 
     fun getCurrentWatchAnime(): StateFlow<Anime> {
         return MutableStateFlow(Anime())

@@ -44,7 +44,6 @@ data class EpisodeDownload(
 data class OngoingEpisodeDownload(
     val id: Int = 0,
     val num: Int = 0,
-    val relationCode: String = "S1",
     val status: DownloadStatus = DownloadStatus.WAITING,
     val duration: Float = 0f,
     val downloadedDuration: Float = 0f,
@@ -67,7 +66,7 @@ data class OngoingEpisodeDownload(
 data class AnimeDownload (
     val animeId: AnimeId = AnimeId(),
     val title: String = "",
-    val image: String,
+    val image: String = "",
     val episodes: AnimeEpisode = AnimeEpisode(),
     val type: AnimeType = AnimeType.ALL,
     val duration: Float = 0f,

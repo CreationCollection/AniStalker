@@ -32,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,7 +46,6 @@ import com.redline.anistalker.models.WatchlistPrivacy
 import com.redline.anistalker.ui.theme.AniStalkerTheme
 import com.redline.anistalker.ui.theme.dark_background
 import com.redline.anistalker.ui.theme.dullRed
-import com.redline.anistalker.ui.theme.mid_background
 import com.redline.anistalker.ui.theme.secondary_background
 
 @Composable
@@ -302,7 +300,6 @@ fun EpisodeRange(
 fun EpisodeProgress(
     num: Int,
     value: Float,
-    relationCode: String? = null,
     status: DownloadStatus = DownloadStatus.RUNNING,
     onClick: (() -> Unit)? = null
 ) {
@@ -345,15 +342,6 @@ fun EpisodeProgress(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            if (relationCode != null || LocalInspectionMode.current) {
-                Text(
-                    text = relationCode ?: "SP1",
-                    color = foreColor,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.size(4.dp))
-            }
             Text(
                 text = "EP",
                 color = foreColor,

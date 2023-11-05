@@ -66,7 +66,6 @@ import com.redline.anistalker.ui.theme.secondary_background
 import com.redline.anistalker.utils.toDurationFormat
 import com.redline.anistalker.utils.toSizeFormat
 import kotlin.math.ceil
-import kotlin.random.Random
 import com.redline.anistalker.models.AnimeCard as AnimeHalf
 
 
@@ -451,13 +450,8 @@ private fun AnimeDownloadCard_Details(
     val dim = Color.White.copy(alpha = .4f)
     val grey = Color.White.copy(alpha = .75f)
 
-    val size = details.downloadStats.size.toSizeFormat().split(" ")
-    val duration = details.downloadStats.duration.toDurationFormat().split(" ")
-
-    val image = remember(details) {
-        if (details.images.isNotEmpty()) details.images[Random.nextInt(details.images.size)]
-        else null
-    }
+    val size = details.size.toSizeFormat().split(" ")
+    val duration = details.duration.toDurationFormat().split(" ")
 
     Box(
         modifier = Modifier
@@ -466,7 +460,7 @@ private fun AnimeDownloadCard_Details(
             .clickable { onClick() }
     ) {
         AsyncImage(
-            url = image,
+            url = details.image,
             loadColor = dark_background,
             overlayBrush = SolidColor(Color.Black.copy(alpha = .9f)),
             modifier = Modifier.fillMaxSize()
@@ -493,7 +487,7 @@ private fun AnimeDownloadCard_Details(
                     BigEpisodeTail(details.episodes)
                     Divider(modifier = Modifier.size(4.dp), color = dim)
                     Text(
-                        text = details.year.toString(),
+                        text = details.type.value,
                         color = Color.White,
                         fontSize = 12.sp
                     )
@@ -502,36 +496,6 @@ private fun AnimeDownloadCard_Details(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = details.downloadStats.series.toString(),
-                            color = primary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(modifier = Modifier.size(4.dp))
-                        Text(
-                            text = "Series",
-                            color = grey,
-                            fontSize = 12.sp,
-                        )
-                    }
-                    Divider(modifier = Modifier.size(4.dp), color = dim)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = details.downloadStats.episodes.toString(),
-                            color = primary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(modifier = Modifier.size(4.dp))
-                        Text(
-                            text = "Episodes",
-                            color = grey,
-                            fontSize = 12.sp,
-                        )
-                    }
-                    Divider(modifier = Modifier.size(4.dp), color = dim)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = duration[0],
@@ -739,7 +703,6 @@ private fun AnimeDownloadCard_Progress(
                                 EpisodeProgress(
                                     num = it.num,
                                     value = value,
-                                    relationCode = it.relationCode,
                                     status = it.status,
                                 ) {
                                     onEpisodePause(it)
@@ -828,7 +791,7 @@ fun AnimeDownloadCard(
         AnimeDownloadCard_Details(
             details = animeInfo,
             onExpandContent = { onExpandContent?.let { it() } }
-        ) { onClick(animeInfo.dId) }
+        ) { onClick(animeInfo.animeId.zoroId) }
 
         if (ongoingDownloads.isNotEmpty()) {
             Divider(color = outline)

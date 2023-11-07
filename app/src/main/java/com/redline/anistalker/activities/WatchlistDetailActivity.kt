@@ -122,7 +122,7 @@ private fun WatchlistDetailScreen(
                         contentColor = MaterialTheme.colorScheme.primary,
                     ),
                     shape = RoundedCornerShape(6.dp),
-                    onClick = { },
+                    onClick = { onBackPressed() },
                     modifier = Modifier
                         .height(40.dp)
                 ) {
@@ -253,14 +253,31 @@ private fun WatchlistDetailScreen(
 //                }
 //            }
 
-                items(
-                    items = animeList
-                ) { anime ->
-                    AnimeCardView(
-                        animeCard = anime,
-                        onImageClick = { }
-                    ) {
+                if (animeList.isNotEmpty()) {
+                    items(
+                        items = animeList
+                    ) { anime ->
+                        AnimeCardView(
+                            animeCard = anime,
+                            onImageClick = { }
+                        ) {
 
+                        }
+                    }
+                }
+                else {
+                    item {
+                        Box (
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp)
+                        ) {
+                            Text(
+                                text = "No Anime yet added in this watchlist!",
+                                color = Color.White.copy(alpha = .4f)
+                            )
+                        }
                     }
                 }
             }

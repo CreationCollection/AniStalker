@@ -5,4 +5,5 @@
     <string name="title_activity_auth_screen">AuthScreen</string>
     <string name="title_activity_main">MainActivity</string>
     <string name="title_activity_anime_detail">AnimeDetailActivity</string>
+    <string name="title_activity_watchlist_detail">WatchlistDetailActivity</string>
 </resources>

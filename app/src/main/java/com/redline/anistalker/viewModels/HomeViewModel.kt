@@ -1,14 +1,11 @@
 package com.redline.anistalker.viewModels
 
-import android.graphics.Bitmap
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.redline.anistalker.managements.StalkMedia
 import com.redline.anistalker.managements.UserData
 import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.AniErrorCode
-import com.redline.anistalker.models.Anime
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeCategory
 import com.redline.anistalker.models.AnimeSpotlight
@@ -17,9 +14,7 @@ import com.redline.anistalker.utils.fill
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -30,7 +25,7 @@ class HomeViewModel() : ViewModel() {
 
     private val _spotlightAnime = MutableStateFlow(emptyList<AnimeSpotlight>())
     val spotlightAnime = _spotlightAnime.asStateFlow()
-    val currentAnime = UserData.getCurrentWatchAnime()
+    val currentAnime = UserData.currentAnime
 
     private val _animeList = MutableStateFlow(listOf<AnimeCard?>())
     val animeList = _animeList.asStateFlow()

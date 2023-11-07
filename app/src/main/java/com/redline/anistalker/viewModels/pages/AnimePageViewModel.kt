@@ -8,19 +8,19 @@ import com.redline.anistalker.managements.StalkMedia
 import com.redline.anistalker.managements.UserData
 import com.redline.anistalker.models.AniResult
 import com.redline.anistalker.models.Anime
-import com.redline.anistalker.models.AnimeEpisodeDetail
 import com.redline.anistalker.models.AnimeTrack
-import com.redline.anistalker.models.HistoryEntry
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.Watchlist
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
-    private val stateId = "STATE_ID"
-
-    private var currentAnimeId = savedStateHandle.getStateFlow(stateId, 0)
+    private var currentAnimeId = 0
+    private var jobScope = CoroutineScope(Dispatchers.IO)
 
     private val _anime = MutableStateFlow<Anime?>(null)
     val anime = _anime.asStateFlow()
@@ -28,46 +28,51 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
     val watchlist = _watchlist.asStateFlow()
     private val _images = MutableStateFlow(emptyList<String>())
     val images = _images.asStateFlow()
+    private val _currentAnime = MutableStateFlow(false)
+    val currentAnime = _currentAnime.asStateFlow()
 
 
     init {
         viewModelScope.launch {
             UserData.watchlist.collect { updateWatchlist() }
         }
+//        viewModelScope.launch {
+//            UserData.getCurrentWatchAnime().collect {
+//                _currentAnime.value = it.id.zoroId == currentAnimeId.value
+//            }
+//        }
+    }
+
+    override fun onCleared() {
+        jobScope.cancel()
+        super.onCleared()
     }
 
     fun initialize(animeId: Int) {
-        if (currentAnimeId.value != animeId) viewModelScope.launch {
-            savedStateHandle[stateId] = animeId
-            val result = StalkMedia.Anime.getAnimeDetail(animeId)
-            _anime.value = result
-//            launch { _images.value = StalkMedia.Anime.getAnimeImageList(result.id) }
-            launch { updateWatchlist() }
+        if (currentAnimeId != animeId) {
+            jobScope.cancel()
+            jobScope = CoroutineScope(Dispatchers.IO)
+            jobScope.launch {
+                currentAnimeId = animeId
+                val result = StalkMedia.Anime.getAnimeDetail(animeId)
+                _anime.value = result
+                launch { _images.value = StalkMedia.Anime.getAnimeImageList(result.id) }
+                launch { updateWatchlist() }
+            }
         }
     }
 
-    fun addAnimeToWatchlist(watchId: Int): AniResult<Boolean> {
-        return UserData.addAnime(watchId, currentAnimeId.value)
-    }
-
     fun removeAnimeFromWatchlist(watchId: Int): AniResult<Boolean> {
-        return UserData.removeAnime(watchId, currentAnimeId.value)
+        return UserData.removeAnime(watchId, currentAnimeId)
     }
 
     fun downloadEpisodes(episodes: List<Int>, quality: VideoQuality, track: AnimeTrack) {
-        DownloadManager.Anime.download(currentAnimeId.value, episodes, quality, track)
+        DownloadManager.Anime.download(currentAnimeId, episodes, quality, track)
     }
 
-    fun updateEvent(episodeEvent: Boolean, completionEvent: Boolean) {
-//        history.value?.run {
-//            savedStateHandle[stateHistory] = UserData.updateHistory(
-//                currentAnimeId.value,
-//                copy(
-//                    contentEvent = episodeEvent,
-//                    completionEvent = completionEvent
-//                )
-//            )
-//        }
+    fun toggleCurrentAnime() {
+        // TODO("Add method in UserData to change current Anime")
+        _currentAnime.value = !_currentAnime.value
     }
 
     fun updateLastEpisode(lastEpisode: Int) {
@@ -82,7 +87,7 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
     private fun updateWatchlist() {
         val list = mutableListOf<Watchlist>()
         UserData.watchlist.value.forEach {
-            if (it.series.contains(currentAnimeId.value)) list.add(it)
+            if (it.series.contains(currentAnimeId)) list.add(it)
         }
         _watchlist.value = list
     }

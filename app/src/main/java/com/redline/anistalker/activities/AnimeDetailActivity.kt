@@ -9,6 +9,7 @@ import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,8 +18,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowColumn
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,18 +28,22 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,7 +53,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -59,8 +66,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
@@ -70,14 +79,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.redline.anistalker.R
+import com.redline.anistalker.activities.screens.WatchlistOperationSheet
+import com.redline.anistalker.managements.UserData
 import com.redline.anistalker.managements.helper.Net
 import com.redline.anistalker.models.Anime
+import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDate
 import com.redline.anistalker.models.AnimeStatus
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.ui.components.AnimeStatus
 import com.redline.anistalker.ui.components.AsyncImage
 import com.redline.anistalker.ui.components.BigEpisodeTail
+import com.redline.anistalker.ui.components.CenteredBox
 import com.redline.anistalker.ui.components.DownloadButton
 import com.redline.anistalker.ui.components.ExpandableBlock
 import com.redline.anistalker.ui.components.StreamButton
@@ -88,16 +101,20 @@ import com.redline.anistalker.ui.theme.dark_background
 import com.redline.anistalker.ui.theme.secondary_background
 import com.redline.anistalker.utils.blurImage
 import com.redline.anistalker.viewModels.pages.AnimePageViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.ceil
 
 class AnimeDetailActivity : ComponentActivity() {
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
 
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         val animeId = intent.getIntExtra("animeId", 0)
 
         setContent {
+
             AniStalkerTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -109,20 +126,48 @@ class AnimeDetailActivity : ComponentActivity() {
                     val anime by viewModel.anime.collectAsState()
                     val images by viewModel.images.collectAsState()
                     val watchlist by viewModel.watchlist.collectAsState()
+                    val userWatchlist by UserData.watchlist.collectAsState()
+                    val currentAnime by viewModel.currentAnime.collectAsState()
+
+                    var showWatchlistSheet by rememberSaveable { mutableStateOf(false) }
+                    var showCreationScreen by rememberSaveable { mutableStateOf(false) }
 
                     AnimeDetailScreen(
                         anime = anime,
                         images = images,
                         watchlist = watchlist,
-                        onStream = { },
-                        onDownload = { },
-                        onEpisodeEvent = { },
-                        onCompletionEvent = { },
-                        onSetCurrentAnime = { },
-                        onAddToWatchlist = { },
-                        onRemoveWatchlist = { }
+                        currentAnime = currentAnime,
+                        onStream = { /*TODO*/ },
+                        onDownload = { /*TODO*/ },
+                        onSetCurrentAnime = { viewModel.toggleCurrentAnime() },
+                        onAddToWatchlist = { showWatchlistSheet = true },
+                        onRemoveWatchlist = { viewModel.removeAnimeFromWatchlist(it) }
                     ) {
-
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                    anime?.let {
+                        WatchlistOperationSheet(
+                            show = showWatchlistSheet,
+                            showCreationScreen = showCreationScreen,
+                            watchlist = userWatchlist,
+                            anime = anime!!.let {
+                                AnimeCard(
+                                    id = it.id.zoroId,
+                                    name = it.title,
+                                    image = it.image,
+                                    status = it.status,
+                                    type = it.type,
+                                    episodes = it.episodes,
+                                    isAdult = it.isAdult,
+                                )
+                            },
+                            onCreationScreenToggled = {
+                                showCreationScreen = it
+                            }
+                        ) {
+                            showWatchlistSheet = false
+                            showCreationScreen = false
+                        }
                     }
                 }
             }
@@ -135,10 +180,9 @@ private fun AnimeDetailScreen(
     anime: Anime?,
     images: List<String>,
     watchlist: List<Watchlist>?,
+    currentAnime: Boolean,
     onStream: () -> Unit,
     onDownload: () -> Unit,
-    onEpisodeEvent: () -> Unit,
-    onCompletionEvent: () -> Unit,
     onSetCurrentAnime: () -> Unit,
     onAddToWatchlist: () -> Unit,
     onRemoveWatchlist: (Int) -> Unit,
@@ -153,15 +197,25 @@ private fun AnimeDetailScreen(
         mutableStateOf<Bitmap?>(null)
     }
 
+    val listState = rememberLazyListState()
+    var topBarVisibility by rememberSaveable { mutableStateOf(false) }
+
     LaunchedEffect(key1 = anime) {
-        try {
-            bgImage = anime?.image?.run {
-                val bitmap = BitmapFactory.decodeStream(Net.getStream(this))
-                context.blurImage(bitmap, 20f)
+        withContext(Dispatchers.IO) {
+            try {
+                bgImage = anime?.image?.run {
+                    val bitmap = BitmapFactory.decodeStream(Net.getStream(this))
+                    context.blurImage(bitmap, 20f)
+                }
+            } catch (ex: Exception) {
+                ex.printStackTrace()
             }
         }
-        catch (ex: Exception) {
-            ex.printStackTrace()
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemScrollOffset }.collect {
+            topBarVisibility = listState.firstVisibleItemIndex > 0 || it > 40
         }
     }
 
@@ -179,6 +233,7 @@ private fun AnimeDetailScreen(
                     Image(
                         painter = BitmapPainter(it.asImageBitmap()),
                         contentDescription = null,
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1.27f)
@@ -194,14 +249,15 @@ private fun AnimeDetailScreen(
                                     )
                                 }
                             }
+//                            .offset(y = (-scrolledValue).dp)
                     )
                 }
             }
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .systemBarsPadding()
                     .fillMaxSize()
-                    .padding(bottom = 60.dp)
             ) {
                 item {
                     LazyRow(
@@ -221,7 +277,7 @@ private fun AnimeDetailScreen(
                                     .clip(imageShape)
                                     .border(1.dp, MaterialTheme.colorScheme.primary, imageShape)
                                     .fillMaxHeight()
-                                    .aspectRatio(1.42f, true)
+                                    .aspectRatio(0.7f, true)
                             )
                         }
                     }
@@ -232,17 +288,16 @@ private fun AnimeDetailScreen(
                         anime = anime,
                         AnimeDate(),
                         anime.end,
-                        onEpisodeEvent,
-                        onCompletionEvent,
-                        onSetCurrentAnime,
-                        onStream,
-                        onDownload,
+                        currentAnime,
+                        onStream = onStream,
+                        onDownload = onDownload,
+                        onSetCurrentAnime = onSetCurrentAnime,
                         onSeasonClicked = { }
                     )
                 }
 
                 item {
-                    Column (
+                    Column(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.padding(horizontal = 20.dp)
                     ) {
@@ -277,21 +332,41 @@ private fun AnimeDetailScreen(
                 }
 
                 watchlist?.let {
-                    items(
-                        items = it
-                    ) { watch ->
-                        Column(
-                            modifier = Modifier.padding(horizontal = 20.dp)
-                        ) {
-                            WatchlistCard(
-                                watchlist = watch
+                    if (watchlist.isNotEmpty()) {
+                        item {
+                            Spacer(modifier = Modifier.size(20.dp))
+                        }
+                        items(
+                            items = it
+                        ) { watch ->
+                            Column(
+                                modifier = Modifier.padding(horizontal = 20.dp)
                             ) {
-
+                                WatchlistCard(
+                                    watchlist = watch
+                                ) { watchlist ->
+                                    onRemoveWatchlist(watchlist.id)
+                                }
+                                Spacer(modifier = Modifier.size(10.dp))
                             }
                         }
+                        item {
+                            Spacer(modifier = Modifier.size(40.dp))
+                        }
+                    } else item {
+                        CenteredBox(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                        ) {
+                            Text(
+                                text = "Add this Anime in any watchlist.",
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = .6f)
+                            )
+                        }
                     }
-                } ?:
-                item {
+                } ?: item {
                     Column(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -302,10 +377,9 @@ private fun AnimeDetailScreen(
                         CircularProgressIndicator(modifier = Modifier.size(30.dp))
                     }
                 }
-            }
-        } ?:
 
-        Box(
+            }
+        } ?: Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
@@ -321,35 +395,80 @@ private fun AnimeDetailScreen(
 
         Box(
             modifier = Modifier
-                .background(Color.Transparent)
-                .statusBarsPadding()
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .height(IntrinsicSize.Min)
+                .let {
+                    if (topBarVisibility) it.shadow(4.dp)
+                    else it
+                }
         ) {
-            Row (
-                verticalAlignment  = Alignment.CenterVertically,
+            AnimatedVisibility(
+                visible = topBarVisibility,
+                enter = fadeIn(),
+                exit = fadeOut(),
                 modifier = Modifier
-                    .clickable { onBackPressed() }
-                    .clip(buttonShape)
-                    .border(.5.dp, MaterialTheme.colorScheme.primary, buttonShape)
-                    .background(secondary_background)
-                    .shadow(10.dp, ambientColor = Color.Black.copy(alpha = .75f))
-                    .height(35.dp)
-                    .padding(horizontal = 20.dp)
+                    .matchParentSize()
+                    .fillMaxWidth()
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.arrow_back),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary),
+                bgImage?.let {
+                    Image(
+                        painter = BitmapPainter(it.asImageBitmap()),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        alignment = Alignment.TopCenter,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(20.dp, BlurredEdgeTreatment.Rectangle)
+                            .drawWithCache {
+                                onDrawWithContent {
+                                    drawContent()
+                                    drawRect(
+                                        SolidColor(bg.copy(alpha = .92f))
+                                    )
+                                }
+                            }
+                    )
+                } ?: Box(
                     modifier = Modifier
-                        .size(18.dp)
+                        .fillMaxSize()
+                        .background(bg)
                 )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = "Back",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                    .heightIn(min = 60.dp)
+                    .statusBarsPadding()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clickable { onBackPressed() }
+                        .clip(buttonShape)
+                        .let {
+                            if (anime != null) it
+                                .border(.5.dp, MaterialTheme.colorScheme.primary, buttonShape)
+                                .background(secondary_background)
+                            else it
+                        }
+                        .height(35.dp)
+                        .padding(horizontal = 20.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.arrow_back),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary),
+                        modifier = Modifier
+                            .size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(
+                        text = "Back",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
@@ -361,8 +480,7 @@ private fun AnimeDetailedView(
     anime: Anime,
     nextEpisodeDate: AnimeDate,
     endDate: AnimeDate,
-    onEpisodeEvent: () -> Unit,
-    onCompletionEvent: () -> Unit,
+    currentAnime: Boolean,
     onSetCurrentAnime: () -> Unit,
     onStream: () -> Unit,
     onDownload: () -> Unit,
@@ -379,6 +497,15 @@ private fun AnimeDetailedView(
     }
 
     val isAiring = anime.status == AnimeStatus.AIRING
+
+    val currentButtonColors = ButtonDefaults.buttonColors(
+        containerColor =
+            if (currentAnime) MaterialTheme.colorScheme.primaryContainer
+            else secondary_background,
+        contentColor =
+            if (currentAnime) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.primary
+    )
 
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -421,7 +548,7 @@ private fun AnimeDetailedView(
                     .size(4.dp),
             )
             Text(
-                text = "${ anime.season.value } ${ anime.year }",
+                text = "${anime.season.value} ${anime.year}",
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp
             )
@@ -459,28 +586,13 @@ private fun AnimeDetailedView(
                         fontSize = 12.sp,
                     )
                 }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clickable { onEpisodeEvent() }
-                        .clip(shape)
-                        .border(1.dp, notifyColor, shape)
-                        .size(40.dp)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.notification_outline),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(notifyColor),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
             if (endDate.isValid() && isAiring || LocalInspectionMode.current) Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
             ) {
-                Row (
+                Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -501,21 +613,6 @@ private fun AnimeDetailedView(
                         fontSize = 12.sp
                     )
                 }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clickable { onCompletionEvent() }
-                        .clip(shape)
-                        .border(1.dp, notifyColor, shape)
-                        .size(40.dp)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.notification_outline),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(notifyColor),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
 
             Row(
@@ -532,6 +629,24 @@ private fun AnimeDetailedView(
                     onDownload()
                 }
             }
+
+            Button(
+                onClick = { onSetCurrentAnime() },
+                colors = currentButtonColors,
+                shape = RoundedCornerShape(6.dp),
+                border = BorderStroke(.5.dp, MaterialTheme.colorScheme.primary),
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                val contentColor = LocalContentColor.current
+                Text(
+                    text =
+                        if (currentAnime) "Remove as Current Anime"
+                        else "Set As Current Anime",
+                    fontSize = 12.sp,
+                    color = contentColor
+                )
+            }
         }
 
         Column(
@@ -539,7 +654,7 @@ private fun AnimeDetailedView(
                 .border(.5.dp, MaterialTheme.colorScheme.onPrimaryContainer, shape)
                 .fillMaxWidth()
         ) {
-            FlowRow (
+            FlowRow(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
@@ -564,39 +679,46 @@ private fun AnimeDetailedView(
                 }
             }
 
-            Divider(color = MaterialTheme.colorScheme.onPrimaryContainer)
+            if (anime.otherNames.isNotEmpty()) {
+                Divider(color = MaterialTheme.colorScheme.onPrimaryContainer)
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier
-                    .padding(horizontal = 20.dp, vertical = 15.dp)
-            ) {
-                repeat(anime.otherNames.size) {
-                    Text(
-                        text = anime.otherNames[it],
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 15.dp)
+                ) {
+                    repeat(anime.otherNames.size) {
+                        Text(
+                            text = anime.otherNames[it],
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
         }
 
         ExpandableBlock(
             label = "Plot Summary",
-            height = 40.dp,
+            height = 50.dp,
             expand = plotSummaryExpanded,
             onClick = { plotSummaryExpanded = !plotSummaryExpanded }
         ) {
-            Text(
-                text = anime.description.trimStart(),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(20.dp)
+            Box(
+                modifier = Modifier
+                    .padding(20.dp)
             )
+            {
+                Text(
+                    text = anime.description.trimStart(),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
         }
-        ExpandableBlock(
+        if (anime.relations.isNotEmpty()) ExpandableBlock(
             label = "Seasons",
-            height = 40.dp,
+            height = 50.dp,
             expand = seasonExpanded,
             onClick = { seasonExpanded = !seasonExpanded }
         ) {
@@ -615,14 +737,14 @@ private fun AnimeDetailedView(
                             val index = (i * 2) + j
                             if (index < anime.relations.size) {
                                 val relation = anime.relations[index]
-                
+
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
                                         .clickable { onSeasonClicked(relation.zoroId) }
                                         .clip(shape)
                                         .border(
-                                            1.dp,
+                                            .5.dp,
                                             MaterialTheme.colorScheme.onPrimaryContainer,
                                             shape
                                         )
@@ -636,7 +758,7 @@ private fun AnimeDetailedView(
                                     )
                                     AsyncImage(url = relation.image, loadColor = dark_background)
                                 }
-                                
+
                             } else {
                                 Spacer(modifier = Modifier.weight(1f))
                             }
@@ -660,7 +782,8 @@ private fun previewScreen() {
                 anime = Anime(),
                 images = listOf(),
                 watchlist = null,
-                { }, { }, { }, { }, { }, { }, { }, { }
+                currentAnime = false,
+                { }, { }, { }, { }, { }, { },
             )
         }
     }

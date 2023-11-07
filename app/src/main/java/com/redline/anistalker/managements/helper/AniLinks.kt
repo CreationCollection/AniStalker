@@ -18,7 +18,7 @@ object AniLinks {
         private val episodes = "$baseUrl/anime/:id/episodes"
         private val episodeServers = "$baseUrl/anime/episode/:id/servers"
         private val episodeVideos = "$baseUrl/anime/episode/:id/video?track=:track&sf=:files"
-        private val images = "$baseUrl/anime/:id/images"
+        private val images = "$baseUrl/anime/images/:id"
 
         fun makeSearchLink(keyword: String, filter: AnimeSearchFilter): String {
             return search

@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -70,6 +69,7 @@ import kotlinx.coroutines.launch
 fun WatchlistOperationSheet(
     show: Boolean,
     showCreationScreen: Boolean = false,
+    showBackPressButton: Boolean = false,
     watchlist: List<Watchlist>,
     anime: AnimeCard,
     onWatchlistCreated: ((Watchlist) -> Unit)? = null,
@@ -95,6 +95,7 @@ fun WatchlistOperationSheet(
     ) {
         if (showCreationScreen) {
             WatchlistCreationSheet(
+                showBackPressButton = showBackPressButton,
                 onBackPress = {
                     onCreationScreenToggled(false)
                     scope.launch { sheetState.partialExpand() }
@@ -234,6 +235,7 @@ fun WatchlistSelectionSheet(
 
 @Composable
 fun WatchlistCreationSheet(
+    showBackPressButton: Boolean = false,
     onBackPress: () -> Unit,
     onCreated: (Watchlist) -> Unit,
 ) {
@@ -251,7 +253,7 @@ fun WatchlistCreationSheet(
             .focusable(true)
     ) {
         Row {
-            Box (
+            if (showBackPressButton) Box (
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.size(60.dp)
             ) {
@@ -278,7 +280,7 @@ fun WatchlistCreationSheet(
                     fontWeight = FontWeight.Bold,
                 )
             }
-            Spacer(modifier = Modifier.width(60.dp))
+            if (showBackPressButton) Spacer(modifier = Modifier.size(60.dp))
         }
         Divider(modifier = Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .5f))
         Column(
@@ -406,7 +408,7 @@ private fun P_WatchlistCreationView() {
             color = aniStalkerColorScheme.background,
             contentColor = Color.White,
         ) {
-            WatchlistCreationSheet({ }) { }
+            WatchlistCreationSheet(onBackPress = { }) { }
         }
     }
 }

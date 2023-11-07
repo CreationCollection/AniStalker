@@ -18,11 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -99,11 +97,11 @@ class MainActivity : ComponentActivity() {
                         },
                         contentWindowInsets = WindowInsets(0, 0, 0, 0)
                     ) { pads ->
-                        Box (
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(pads)
-                        ){
+                        ) {
                             NavHost(
                                 navController = navController,
                                 startDestination = screenHome
@@ -136,6 +134,14 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this@MainActivity, AnimeDetailActivity::class.java)
             .putExtra("animeId", animeId)
         startActivity(intent)
+    }
+
+    private fun openWatchlistDetails(watchId: Int) {
+        startActivity(
+            Intent(this, WatchlistDetailActivity::class.java).apply {
+                putExtra("watchId", watchId)
+            }
+        )
     }
 
     private fun NavGraphBuilder.homeScreenComposable() = composable(
@@ -221,9 +227,9 @@ class MainActivity : ComponentActivity() {
         LibraryScreen(
             watchlist = watchlist,
             animeCount = 0,
-            onAnimeCollectionClicked = {  },
+            onAnimeCollectionClicked = { },
         ) {
-
+            openWatchlistDetails(it.id)
         }
     }
 
@@ -238,7 +244,9 @@ class MainActivity : ComponentActivity() {
 
         MediaScreen(
             animeDownloads = animeDownloads,
-            ongoingDownloads = { viewModel.getAnimeOngoingDownload(it) ?: MutableStateFlow(emptyList()) }
+            ongoingDownloads = {
+                viewModel.getAnimeOngoingDownload(it) ?: MutableStateFlow(emptyList())
+            }
         )
     }
 }

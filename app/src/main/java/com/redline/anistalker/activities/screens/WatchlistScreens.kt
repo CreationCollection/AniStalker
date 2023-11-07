@@ -70,13 +70,17 @@ fun WatchlistOperationSheet(
     show: Boolean,
     showCreationScreen: Boolean = false,
     showBackPressButton: Boolean = false,
-    watchlist: List<Watchlist>,
-    anime: AnimeCard,
+    watchlist: List<Watchlist>?,
+    anime: AnimeCard?,
     onWatchlistCreated: ((Watchlist) -> Unit)? = null,
     onWatchlistSelected: ((Int) -> Unit)? = null,
     onCreationScreenToggled: (Boolean) -> Unit,
     onHide: () -> Unit,
 ) {
+    var title by rememberSaveable {
+        mutableStateOf("")
+    }
+
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
 
@@ -89,12 +93,15 @@ fun WatchlistOperationSheet(
         onDismissRequest = {
             scope.launch { sheetState.hide() }
                 .invokeOnCompletion { onHide() }
+            title = ""
         },
         modifier = Modifier
             .imePadding()
     ) {
         if (showCreationScreen) {
             WatchlistCreationSheet(
+                title = title,
+                onTitleChanged = { title = it },
                 showBackPressButton = showBackPressButton,
                 onBackPress = {
                     onCreationScreenToggled(false)
@@ -113,24 +120,27 @@ fun WatchlistOperationSheet(
                     }
             }
         } else {
-            WatchlistSelectionSheet(
-                watchlist = watchlist,
-                anime = anime,
-                onCreateWatchlist = {
-                    onCreationScreenToggled(true)
-                    scope.launch { sheetState.expand() }
+            watchlist?.let {
+                WatchlistSelectionSheet(
+                    watchlist = watchlist,
+                    anime = anime,
+                    onCreateWatchlist = {
+                        onCreationScreenToggled(true)
+                        scope.launch { sheetState.expand() }
+                    }
+                ) { id ->
+                    if (anime != null) UserData.addAnimeToWatchlist(id, anime.id)
+                        .then {
+                            UserData.addAnime(anime)
+                            scope.launch { sheetState.hide() }
+                                .invokeOnCompletion {
+                                    onWatchlistSelected?.run { this(id) }
+                                    onHide()
+                                }
+                        }
+                        .catch {
+                        }
                 }
-            ) { id ->
-                UserData.addAnime(id, anime.id)
-                    .then {
-                        scope.launch { sheetState.hide() }
-                            .invokeOnCompletion {
-                                onWatchlistSelected?.run { this(id) }
-                                onHide()
-                            }
-                    }
-                    .catch {
-                    }
             }
         }
     }
@@ -168,8 +178,8 @@ fun WatchlistSelectionSheet(
                     showOwner = false
                 ) { }
             }
+            Divider(modifier = Modifier.fillMaxWidth())
         }
-        Divider(modifier = Modifier.fillMaxWidth())
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(20.dp),
@@ -235,14 +245,12 @@ fun WatchlistSelectionSheet(
 
 @Composable
 fun WatchlistCreationSheet(
+    title: String,
+    onTitleChanged: (String) -> Unit,
     showBackPressButton: Boolean = false,
     onBackPress: () -> Unit,
     onCreated: (Watchlist) -> Unit,
 ) {
-    var title by rememberSaveable {
-        mutableStateOf("")
-    }
-
     var selectedTab by rememberSaveable {
         mutableIntStateOf(0)
     }
@@ -295,7 +303,7 @@ fun WatchlistCreationSheet(
                     Text(text = "Title")
                 },
                 onValueChange = {
-                    if (it.length < 120) title = it
+                    if (it.length < 120) onTitleChanged(it)
                 },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -366,7 +374,9 @@ fun WatchlistCreationSheet(
                 contentColor = Color.White,
             ),
             shape = RoundedCornerShape(6.dp),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
             val contentColor = LocalContentColor.current
             Text(
@@ -408,7 +418,7 @@ private fun P_WatchlistCreationView() {
             color = aniStalkerColorScheme.background,
             contentColor = Color.White,
         ) {
-            WatchlistCreationSheet(onBackPress = { }) { }
+            WatchlistCreationSheet(title = "", onTitleChanged = { }, onBackPress = { }) { }
         }
     }
 }

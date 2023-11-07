@@ -71,8 +71,11 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
     }
 
     fun toggleCurrentAnime() {
-        // TODO("Add method in UserData to change current Anime")
         _currentAnime.value = !_currentAnime.value
+        UserData.setCurrentAnime(
+            if (_currentAnime.value) _anime.value
+            else null
+        )
     }
 
     fun updateLastEpisode(lastEpisode: Int) {

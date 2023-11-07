@@ -149,6 +149,7 @@ class AnimeDetailActivity : ComponentActivity() {
                         WatchlistOperationSheet(
                             show = showWatchlistSheet,
                             showCreationScreen = showCreationScreen,
+                            showBackPressButton = true,
                             watchlist = userWatchlist,
                             anime = anime!!.let {
                                 AnimeCard(

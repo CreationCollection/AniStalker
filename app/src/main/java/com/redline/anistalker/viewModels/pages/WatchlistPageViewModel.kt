@@ -1,65 +1,55 @@
 package com.redline.anistalker.viewModels.pages
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.redline.anistalker.managements.UserData
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.Watchlist
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class WatchlistPageViewModel(private val savedStateHandle: SavedStateHandle): ViewModel() {
-    private val stateId = "STATE_ID"
-    private val stateWatchlist = "STATE_WATCHLIST"
-    private val stateAnimeList = "STATE_ANIME_LIST"
+class WatchlistPageViewModel : ViewModel() {
 
-    private val currentWatchId = savedStateHandle.getStateFlow(stateId, 0)
+    private var currentWatchId = 0
+    private var jobScope = CoroutineScope(Dispatchers.Default)
 
-    val watchlist = savedStateHandle.getStateFlow<Watchlist?>(stateWatchlist, null)
-    val animeList = savedStateHandle.getStateFlow<List<AnimeCard>?>(stateAnimeList, null)
+    private val _watchlist = MutableStateFlow<Watchlist?>(null)
+    val watchlist = _watchlist.asStateFlow()
+    private val _animeList = MutableStateFlow(emptyList<AnimeCard>())
+    val animeList = _animeList.asStateFlow()
 
     init {
         viewModelScope.launch {
             UserData.watchlist.collect {
-                updateInfo()
+                _watchlist.value = it.find { watch -> watch.id == currentWatchId }
+                updateAnimeList()
             }
         }
     }
 
     fun initialize(watchId: Int) {
-        if (currentWatchId.value != watchId) viewModelScope.launch {
-            savedStateHandle[stateId] = watchId
-            updateInfo()
+        if (currentWatchId != watchId) {
+            jobScope.cancel()
+            jobScope = CoroutineScope(Dispatchers.Default)
+            jobScope.launch {
+                currentWatchId = watchId
+                _watchlist.value = UserData.watchlist.value.find { it.id == watchId }
+                updateAnimeList()
+            }
         }
-    }
-
-    fun updateWatchlist(watchlist: Watchlist) {
-        UserData.updateWatchlist(currentWatchId.value, watchlist)
-        updateInfo()
-    }
-
-    fun removeAnime(values: List<Int>) {
-        val watch = watchlist.value?.let {
-            it.copy(series = it.series.filter { i -> !values.contains(i) })
-        } ?: return
-
-        updateWatchlist(watch)
-        updateInfo()
     }
 
     fun shareLink(): String {
         return ""
     }
 
-    private fun updateInfo() {
-        viewModelScope.launch {
-            val watch = UserData.watchlist.value.find { it.id == currentWatchId.value }
-            val anime = UserData.animeList.value.filter {
-                watch?.let { it.series.contains(it.id) } ?: false
-            }
-
-            savedStateHandle[stateWatchlist] = watch
-            savedStateHandle[stateAnimeList] = anime
-        }
+    private fun updateAnimeList() {
+        _animeList.value = _watchlist.value?.run {
+            UserData.animeList.value.filter { series.contains(it.id) }
+        } ?: emptyList()
     }
 }

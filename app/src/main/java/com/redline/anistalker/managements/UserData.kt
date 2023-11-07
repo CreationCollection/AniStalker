@@ -12,63 +12,43 @@ import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 
+data class UserInfo(val username: String, val name: String)
+
 object UserData {
+    private var userInfo: UserInfo? = null
+
+    private val _currentAnime = MutableStateFlow<Anime?>(null)
+    val currentAnime = _currentAnime.asStateFlow()
+
     private val _watchlist =
-        MutableStateFlow<List<Watchlist>>(mutableListOf<Watchlist>().apply {
-            for (i in 0..30) {
-                add(Watchlist())
-            }
-        })
+        MutableStateFlow<List<Watchlist>>(emptyList())
     val watchlist = _watchlist.asStateFlow()
 
     private val _animeList =
-        MutableStateFlow<List<AnimeCard>>(mutableListOf<AnimeCard>().apply {
-            for (i in 0..100) {
-                add(AnimeCard())
-            }
-        })
+        MutableStateFlow<List<AnimeCard>>(emptyList())
     val animeList = _animeList.asStateFlow()
 
     private val _eventList =
-        MutableStateFlow<List<Event>>(mutableListOf<Event>().apply {
-            for (i in 0..100) {
-//                add(if (Random.nextBoolean()) Event.AnimeEvent() else Event.MangaEvent())
-                add(Event.AnimeEvent())
-            }
-        })
+        MutableStateFlow<List<Event>>(emptyList())
     val eventList = _eventList.asStateFlow()
 
     private val _animeDownload =
-        MutableStateFlow<List<AnimeDownload>>(mutableListOf<AnimeDownload>().apply {
-            for (i in 1..10) {
-                add(AnimeDownload(
-                    content = mutableListOf<Int>().apply {
-                        for (x in 1..12) {
-                            add(x)
-                        }
-                    },
-                    ongoingContent = mutableListOf<Int>().apply {
-                        for (x in 1..4) {
-                            add(x)
-                        }
-                    }
-                ))
-            }
-        })
+        MutableStateFlow<List<AnimeDownload>>(emptyList())
     val animeDownload = _animeDownload.asStateFlow()
 
     private val downloadContent = mutableMapOf<Int, EpisodeDownload>()
 
-    fun getDownloadContent(episodeId: Int): EpisodeDownload? {
-        return downloadContent[episodeId]
+    init {
+        userInfo = UserInfo("Anmol011", "Anmol Kashyap")
     }
 
-    fun getCurrentWatchAnime(): StateFlow<Anime> {
-        return MutableStateFlow(Anime())
+    fun getCurrentUser(): UserInfo? = userInfo
+
+    fun getDownloadContent(episodeId: Int): EpisodeDownload? {
+        return downloadContent[episodeId]
     }
 
     fun getHistoryEntry(animeId: Int): HistoryEntry {
@@ -79,15 +59,36 @@ object UserData {
         return HistoryEntry()
     }
 
+    fun setCurrentAnime(anime: Anime?) {
+        _currentAnime.value = anime
+    }
+
+    fun addAnime(animeCard: AnimeCard) {
+        _animeList.value = _animeList.value.toMutableList().apply { add(animeCard) }
+    }
+
     // Modifiers
-    fun addAnime(watchId: Int, animeId: Int): AniResult<Boolean> {
+    fun addAnimeToWatchlist(watchId: Int, animeId: Int): AniResult<Boolean> {
         val result = AniResult<Boolean>()
-        Thread {
-            try {
-                Thread.sleep(1000)
-            } catch (_: Exception) {
+        result.then {
+            if (it) _watchlist.run {
+                value = value.map {  watchlist ->
+                    if (watchlist.id == watchId)
+                        watchlist.copy(series = watchlist.series.toMutableList().apply { add(animeId) })
+                    else watchlist
+                }
             }
-            result.pass(true)
+        }
+        Thread {
+            if (_watchlist.value.any { it.id == watchId }) {
+                try {
+                    Thread.sleep(1000)
+                } catch (_: Exception) {
+                }
+                result.pass(true)
+            } else {
+                result.pass(false)
+            }
         }.start()
         return result
     }
@@ -106,6 +107,11 @@ object UserData {
 
     fun createWatchlist(title: String, privacy: WatchlistPrivacy): AniResult<Watchlist> {
         val result = AniResult<Watchlist>()
+        result.then {
+            _watchlist.run {
+                value = value.toMutableList() + it
+            }
+        }
         Thread {
             try {
                 Thread.sleep(1000)
@@ -119,7 +125,8 @@ object UserData {
                 Watchlist(
                     id = id,
                     title = title,
-                    privacy = privacy
+                    privacy = privacy,
+                    owner = getCurrentUser()!!.username
                 )
             )
         }.start()

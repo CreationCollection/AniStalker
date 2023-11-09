@@ -1,31 +1,72 @@
 package com.redline.anistalker.managements
 
-import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.util.Log
+import com.redline.anistalker.managements.downloadSystem.DownloadTask
+import com.redline.anistalker.models.AnimeEpisodeDetail
 import com.redline.anistalker.models.AnimeTrack
-import com.redline.anistalker.models.EpisodeDownload
+import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.OngoingEpisodeDownload
 import com.redline.anistalker.models.VideoQuality
+import com.redline.anistalker.services.DownloadService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import com.redline.anistalker.models.Anime as AnimeFull
 
-@SuppressLint("StaticFieldLeak")
 object DownloadManager {
-    private lateinit var context: Context
+    private var initialized = false
 
     fun initialize(context: Context) {
-        DownloadManager.context = context.applicationContext
+        context.applicationContext.registerReceiver(
+            Anime.animeBroadcastReceiver,
+            IntentFilter(DownloadService.ACTION_STATE_CHANGE)
+        )
+        DownloadService.commandStartService(context) { }
+        initialized = true
     }
 
     object Anime {
-
-        private val contentMap = mutableMapOf<Int, MutableStateFlow<List<EpisodeDownload>>>()
-        private val ongoingContent: MutableMap<Int, MutableStateFlow<List<OngoingEpisodeDownload>>> = mutableMapOf()
-
+        private val ongoingContent: MutableMap<Int, MutableStateFlow<List<OngoingEpisodeDownload>>> =
+            mutableMapOf()
         val animeDownloads = UserData.animeDownload
 
-        fun getContent(animeDID: Int): StateFlow<List<EpisodeDownload>>? {
-            return contentMap[animeDID]
+        val animeBroadcastReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                intent?.run {
+                    val episodeId = getIntExtra(DownloadTask.EPISODE_ID, 0)
+                    val status = DownloadStatus.valueOf(
+                        getStringExtra(DownloadTask.STATUS)
+                            ?: DownloadStatus.PROCESSING.name
+                    )
+                    Log.d("Download Receiver", "${ status.name } for episodeId: $episodeId")
+                    when (status) {
+                        DownloadStatus.RUNNING -> {
+                            val duration = getFloatExtra(DownloadTask.DURATION, 0f)
+                            val size = getLongExtra(DownloadTask.SIZE, 0)
+                            val speed = getLongExtra(DownloadTask.DOWNLOAD_SPEED, 0)
+                        }
+
+                        DownloadStatus.WRITING -> {
+                            val size = getLongExtra(DownloadTask.SIZE, 0)
+                            val downloadedSize = getLongExtra(DownloadTask.DOWNLOADED_SIZE, 0)
+                        }
+
+                        DownloadStatus.COMPLETED -> {
+                            val duration = getFloatExtra(DownloadTask.DURATION, 0f)
+                            val size = getLongExtra(DownloadTask.SIZE, 0)
+                        }
+
+                        else -> {
+                            val duration =
+                                getFloatExtra(DownloadTask.DOWNLOADED_DURATION, 0f)
+                            val size = getLongExtra(DownloadTask.DOWNLOADED_SIZE, 0)
+                        }
+                    }
+                }
+            }
         }
 
         fun getOngoingDownloads(animeDID: Int): StateFlow<List<OngoingEpisodeDownload>>? {

@@ -32,8 +32,24 @@ object DownloadManager {
             return ongoingContent[animeDID]
         }
 
-        fun download(animeId: Int, epId: List<Int>, quality: VideoQuality = VideoQuality.UHD, track: AnimeTrack = AnimeTrack.SUB) {
+        fun download(
+            context: Context,
+            anime: AnimeFull,
+            episode: AnimeEpisodeDetail,
+            track: AnimeTrack = AnimeTrack.SUB
+        ) {
+            if (!UserData.canDownload(episode.id, track)) return
 
+            val episodeDownload = UserData.addAnimeDownload(anime, episode)
+            DownloadService.commandDownload(
+                context = context,
+                episodeId = episodeDownload.id,
+                fileName =
+                if (track == AnimeTrack.SUB) episodeDownload.subFile
+                else episodeDownload.dubFile,
+                track = track,
+                quality = VideoQuality.UHD,
+            )
         }
 
         fun cancel(epId: Int) {

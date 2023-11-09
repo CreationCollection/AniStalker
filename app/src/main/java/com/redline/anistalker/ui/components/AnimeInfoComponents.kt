@@ -958,20 +958,11 @@ fun EpisodeDownloadView(
             ) {
 
                 Text(
-                    text = details.quality.value,
+                    text = VideoQuality.UHD.value,
                     color = color,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
-                if (statusInfo != null) {
-                    Divider(modifier = Modifier.size(4.dp), color = dim)
-                    Text(
-                        text = details.relation,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
                 Spacer(modifier = Modifier.weight(1f))
 
                 Text(

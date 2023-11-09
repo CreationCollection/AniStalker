@@ -53,6 +53,9 @@ object FileMaster {
         Log.d("File Locations", "BaseLocation: ${baseLocation.path}\nStorageLocation: ${storageLocation.path}")
     }
 
+    fun isDownloadExist(fileLocation: String): Boolean {
+        return File(storageLocation, fileLocation).exists()
+    }
 
     fun readAllAnimeCards(): List<AnimeCard> {
         val file = File(baseLocation, animeCardLocation)
@@ -195,6 +198,11 @@ object FileMaster {
         var lock: FileLock? = null
 
         try {
+            if (!target.exists()) {
+                target.parentFile?.mkdirs()
+                target.createNewFile()
+            }
+
             output = target.outputStream()
             channel = output.channel
             lock = channel.lock()
@@ -260,6 +268,9 @@ object FileMaster {
             var lock: FileLock? = null
 
             try {
+                file.parentFile?.mkdirs()
+                file.createNewFile()
+
                 stream = file.outputStream()
                 channel = stream.channel
                 lock = channel.lock()
@@ -291,6 +302,11 @@ object FileMaster {
         var lock: FileLock? = null
 
         try {
+            if (!file.exists()) {
+                file.parentFile?.mkdirs()
+                file.createNewFile()
+            }
+
             output = file.outputStream()
             channel = output.channel
             lock = channel.lock()

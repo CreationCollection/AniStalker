@@ -29,16 +29,15 @@ data class EpisodeRange (val start: Int = 0, val end: Int = 0)
 
 data class EpisodeDownload(
     val id: Int = 0,
-    val animeId: AnimeId = AnimeId(),
+    val animeId: Int = 0,
     val title: String = "Episode Title",
     val num: Int = 0,
-    val relation: String = "Season 1",
-    val quality: VideoQuality = VideoQuality.HD,
-    val language: AnimeTrack = AnimeTrack.ALL,
     val intro: VideoRange = VideoRange(),
     val outro: VideoRange = VideoRange(),
     val duration: Float = 0f,
-    val size: Long = 0L
+    val size: Long = 0L,
+    val dubFile: String = "",
+    val subFile: String = "",
 )
 
 data class OngoingEpisodeDownload(

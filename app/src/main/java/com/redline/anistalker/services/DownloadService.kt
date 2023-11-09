@@ -91,7 +91,7 @@ class DownloadService : Service() {
             action = DownloadCommands.CANCEL_ALL.name
         }
 
-        private fun commandStartService(context: Context, applyOnIntent: Intent.() -> Unit) {
+        fun commandStartService(context: Context, applyOnIntent: Intent.() -> Unit) {
             val intent = Intent(context, DownloadService::class.java).apply{ applyOnIntent() }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -111,9 +111,17 @@ class DownloadService : Service() {
     private lateinit var downloadProcessingFlow: ExecutionFlow
     private lateinit var downloadingFlow: ExecutionFlow
 
+    private val notifications = ConcurrentHashMap<Int, NotificationCompat.Builder>()
+    private lateinit var nfManager: NotificationManagerCompat
+    private val downloadChannelId = "CHANNEL_DOWNLOAD"
+    private var fgNotification = 0
+
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
+        nfManager = NotificationManagerCompat.from(applicationContext)
+
         checkHandle = Handler(Looper.getMainLooper())
         checkHandle.postDelayed({
             if (
@@ -129,13 +137,11 @@ class DownloadService : Service() {
         downloadProcessingFlow = ExecutionFlow(PROCESSING_LIMIT, serviceScope)
         downloadingFlow = ExecutionFlow(Runtime.getRuntime().availableProcessors(), serviceScope)
 
-        FileMaster.initialize(this)
+        FileMaster.initialize()
 
-        downloadTasks += DownloadMaster.restoreDownloads().also {
-            it.forEach { task ->
-                if (task.status() == DownloadStatus.RUNNING) {
-                    processDownload(task)
-                }
+        downloadTasks += DownloadMaster.restoreDownloads().onEach { task ->
+            if (task.status() == DownloadStatus.RUNNING) {
+                processDownload(task)
             }
         }
     }
@@ -388,10 +394,6 @@ class DownloadService : Service() {
 
     // ========================================
     // Notification Service
-    private val notifications = ConcurrentHashMap<Int, NotificationCompat.Builder>()
-    private val nfManager = NotificationManagerCompat.from(this)
-    private val downloadChannelId = "CHANNEL_DOWNLOAD"
-    private var fgNotification = 0
 
     private fun registerNotification(id: Int): NotificationCompat.Builder {
         return NotificationCompat.Builder(this, downloadChannelId).apply {

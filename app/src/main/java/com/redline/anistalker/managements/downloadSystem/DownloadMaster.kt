@@ -224,7 +224,7 @@ object DownloadMaster {
                 video =
                     if (quality == VideoQuality.HD) v.hd
                     else v.uhd
-                subtitle = v.subtitle[0]
+                subtitle = if (v.subtitle.isNotEmpty()) v.subtitle[0] else null
             } catch (ex: IOException) {
                 ex.printStackTrace()
                 break;

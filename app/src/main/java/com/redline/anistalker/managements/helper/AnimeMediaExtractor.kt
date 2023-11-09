@@ -24,7 +24,6 @@ import com.redline.anistalker.utils.getSafeFloat
 import com.redline.anistalker.utils.getSafeInt
 import com.redline.anistalker.utils.getSafeString
 import com.redline.anistalker.utils.map
-import org.json.JSONArray
 import org.json.JSONObject
 
 object AnimeMediaExtractor {
@@ -89,7 +88,7 @@ object AnimeMediaExtractor {
         val files = mutableListOf<VideoSegment>()
 
         when (isJSON) {
-            true -> it.getJSONObject(videoQuality).run {
+            is JSONObject -> it.getJSONObject(videoQuality).run {
                 url = getSafeString("url")
                 getJSONArray("files").map {
                     val obj = getJSONObject(it)
@@ -103,7 +102,7 @@ object AnimeMediaExtractor {
                     )
                 }
             }
-            false -> url = it.getSafeString(videoQuality)
+            is String -> url = it.getSafeString(videoQuality)
         }
 
         return VideoFile(
@@ -117,7 +116,10 @@ object AnimeMediaExtractor {
             intro = extractVideoRange(it.getJSONObject("intro")),
             outro = extractVideoRange(it.getJSONObject("outro")),
             track = it.getSafeString("track", "sub").run { AnimeTrack.valueOf(uppercase()) },
-            subtitle = it.getJSONArray("subtitles").map { extractSubtitle(getJSONObject(it)) },
+            subtitle =
+                if (!it.isNull("subtitles"))
+                    it.getJSONArray("subtitles").map { extractSubtitle(getJSONObject(it)) }
+                else emptyList(),
             hd = extractVideoLinks(it.getJSONObject("video"), VideoQuality.HD),
             uhd = extractVideoLinks(it.getJSONObject("video"), VideoQuality.UHD),
         )

@@ -23,6 +23,7 @@ import com.redline.anistalker.utils.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.IOException
 import com.redline.anistalker.models.Anime as AnimeFull
 
 private class MediaPage<T>(val url: String, initialPage: Int = 0, val factory: (JSONObject) -> T) :
@@ -69,18 +70,26 @@ private class MediaPage<T>(val url: String, initialPage: Int = 0, val factory: (
 
 object StalkMedia {
     private fun fetchData(url: String): JSONObject {
-        val value = Net.get(url)
-        val json = JSONObject(value)
+        try {
+            val value = Net.get(url)
+            val json = JSONObject(value)
 
-        val status = json.getInt("status")
+            val status = json.getInt("status")
 
-        if (status == 404) {
-            throw AniError(AniErrorCode.NOT_FOUND, "No Content Found.")
-        } else if (status != 200) {
-            throw AniError(AniErrorCode.SERVER_ERROR)
+            if (status == 404) {
+                throw AniError(AniErrorCode.NOT_FOUND, "No Content Found.")
+            } else if (status != 200) {
+                throw AniError(AniErrorCode.SERVER_ERROR)
+            }
+
+            return json
         }
-
-        return json
+        catch (ex: AniError) {
+            throw ex
+        }
+        catch (ex: IOException) {
+            throw AniError(AniErrorCode.SERVER_ERROR, ex.message ?: "Unknown Server Error!")
+        }
     }
 
     object Anime {

@@ -21,12 +21,11 @@ import com.redline.anistalker.managements.downloadSystem.DownloadTask
 import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.VideoQuality
+import com.redline.anistalker.utils.ExecutionFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
 enum class DownloadCommands(val id: Int, val action: String) {
@@ -446,32 +445,4 @@ private fun NotificationCompat.Builder.setInfoText(text: String) {
         setSubText(text)
     else
         setContentInfo(text)
-}
-
-private class ExecutionFlow(
-    private val concurrentCount: Int,
-    private val scope: CoroutineScope,
-) {
-    private val queue = ConcurrentLinkedQueue<suspend CoroutineScope.() -> Unit>()
-    private val currentCount = AtomicInteger(0)
-
-    fun execute(callback: suspend CoroutineScope.() -> Unit) {
-        queue.add(callback)
-        operateTasks()
-    }
-
-    fun isEmpty(): Boolean = queue.size == 0
-
-    private fun operateTasks() {
-        if (currentCount.get() < concurrentCount) queue.poll()?.let {
-            currentCount.incrementAndGet()
-
-            scope.launch {
-                it()
-            }.invokeOnCompletion {
-                currentCount.decrementAndGet()
-                operateTasks()
-            }
-        }
-    }
 }

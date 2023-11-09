@@ -94,7 +94,7 @@ fun<T, R> Array<T>.utilize(initial: R, offset: Int = 0, callback: (item: T, resu
 
 fun String.combineAsPath(vararg paths: String): String{
     return paths.utilize(this) { i, r ->
-        r + File.pathSeparator + i
+        r + File.separator + i
     }
 }
 

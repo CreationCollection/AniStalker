@@ -39,7 +39,7 @@ object AniLinks {
 
         fun makeEpisodeVideoLink(epId: Int, track: AnimeTrack, files: Boolean) =
             episodeVideos
-                .replace(":epId", epId.toString())
+                .replace(":id", epId.toString())
                 .replace(":track", track.value.lowercase())
                 .replace(":files", files.toString())
 

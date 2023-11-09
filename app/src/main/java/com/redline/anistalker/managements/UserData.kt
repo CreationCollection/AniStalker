@@ -4,21 +4,23 @@ import com.redline.anistalker.models.AniResult
 import com.redline.anistalker.models.Anime
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
+import com.redline.anistalker.models.AnimeEpisodeDetail
 import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.EpisodeDownload
 import com.redline.anistalker.models.Event
 import com.redline.anistalker.models.HistoryEntry
-import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 import java.util.UUID
 
 data class UserInfo(val username: String, val name: String)
 
 object UserData {
     private var userInfo: UserInfo? = null
+    private var userAuthToken: String? = null
 
     private val _currentAnime = MutableStateFlow<Anime?>(null)
     val currentAnime = _currentAnime.asStateFlow()
@@ -49,14 +51,6 @@ object UserData {
 
     fun getDownloadContent(episodeId: Int): EpisodeDownload? {
         return downloadContent[episodeId]
-    }
-
-    fun getHistoryEntry(animeId: Int): HistoryEntry {
-        return HistoryEntry()
-    }
-
-    fun getHistoryEntry(mangaId: String): HistoryEntry {
-        return HistoryEntry()
     }
 
     fun setCurrentAnime(anime: Anime?) {
@@ -169,33 +163,71 @@ object UserData {
         return result
     }
 
-    fun addAnimeDownload(
-        animeId: Int,
-        epId: Int,
-        quality: VideoQuality,
-        track: AnimeTrack
-    ): AniResult<EpisodeDownload> {
-        val result = AniResult<EpisodeDownload>()
-        Thread {
-            try {
-                Thread.sleep(1000)
-            } catch (_: Exception) {
-            }
-            result.pass(EpisodeDownload())
-        }.start()
-        return result
+    fun canDownload(episodeId: Int, lang: AnimeTrack): Boolean {
+        val episode = downloadContent[episodeId]
+        return episode == null ||
+                episode.let {
+                    val file =
+                        if (lang == AnimeTrack.SUB) it.subFile
+                        else it.dubFile
+                    !FileMaster.isDownloadExist(file)
+                }
     }
 
-    fun completeDownload(animeId: Int, epId: Int): AniResult<EpisodeDownload> {
-        val result = AniResult<EpisodeDownload>()
-        Thread {
-            try {
-                Thread.sleep(1000)
-            } catch (_: Exception) {
+    fun addAnimeDownload(
+        anime: Anime,
+        episode: AnimeEpisodeDetail,
+    ): EpisodeDownload {
+        val folder = "${ anime.title.english }${ File.separator }"
+
+        val episodeDownload = EpisodeDownload(
+            id = episode.id,
+            animeId = anime.id.zoroId,
+            title = episode.title,
+            num = episode.episode,
+            subFile = folder + "EP${ episode.episode }-SUB-UHD_${ anime.title.english }",
+            dubFile = folder + "EP${ episode.episode }-DUB-UHD_${ anime.title.english }"
+        )
+        downloadContent[episodeDownload.id] = episodeDownload
+
+        val download = (_animeDownload.value.find {
+            it.animeId.zoroId == anime.id.zoroId
+        } ?: AnimeDownload(
+            animeId = anime.id,
+            title = anime.title.english,
+            image = anime.image,
+            type = anime.type,
+        )).let {
+            it.copy(
+                content = it.content.filter { epId -> epId != episode.id},
+                ongoingContent =
+                    if (it.ongoingContent.contains(episode.id)) it.ongoingContent
+                    else it.ongoingContent.toMutableList().apply { add(episode.id) }
+            )
+        }
+
+        _animeDownload.apply {
+            value = value.toMutableList().apply {
+                if (!any { it.animeId.zoroId == download.animeId.zoroId }) add(download)
             }
-            result.pass(EpisodeDownload())
-        }.start()
-        return result
+        }
+
+        return episodeDownload
+    }
+
+    fun completeDownload(animeId: Int, epId: Int) {
+        _animeDownload.apply {
+            value = value.map {
+                if (it.animeId.zoroId == animeId)
+                    it.copy(
+                        content = it.content.toMutableList().apply {
+                            if (!any { id -> id == epId }) add(epId)
+                        },
+                        ongoingContent = it.ongoingContent.filter { id -> id != epId }
+                    )
+                else it
+            }
+        }
     }
 
     fun removeAnimeDownload(animeId: Int, epId: Int): AniResult<EpisodeDownload> {

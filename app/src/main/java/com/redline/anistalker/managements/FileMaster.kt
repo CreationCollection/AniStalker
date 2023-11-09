@@ -33,18 +33,24 @@ import java.nio.channels.FileLock
 
 object FileMaster {
     private lateinit var baseLocation: File
+    private lateinit var storageLocation: File
 
-    private val animeCardLocation = "animeCards"
-    private val watchlistLocation = "watchlist"
+    private const val animeCardLocation = "animeCards"
+    private const val watchlistLocation = "watchlist"
 
-    private val downloads = "downloads"
-    private val downloadEntry = "entries"
-    private val downloadContent = "contents"
-    private val downloadSources = "sources"
-    private val downloadSegments = "segments"
+    private const val downloads = "downloads"
+    private const val downloadEntry = "entries"
+    private const val downloadContent = "contents"
+    private const val downloadSources = "sources"
+    private const val downloadSegments = "segments"
 
-    fun initialize(context: Context) {
-        baseLocation = context.filesDir
+    fun initialize() {
+        val moviesFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+
+        storageLocation = File(moviesFolder, "AniStalker")
+        baseLocation = /*context.filesDir*/ File(storageLocation, "internal")
+
+        Log.d("File Locations", "BaseLocation: ${baseLocation.path}\nStorageLocation: ${storageLocation.path}")
     }
 
 

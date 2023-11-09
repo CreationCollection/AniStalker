@@ -1,15 +1,16 @@
 package com.redline.anistalker.viewModels.pages
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.redline.anistalker.managements.DownloadManager
 import com.redline.anistalker.managements.StalkMedia
 import com.redline.anistalker.managements.UserData
 import com.redline.anistalker.models.AniResult
 import com.redline.anistalker.models.Anime
+import com.redline.anistalker.models.AnimeEpisodeDetail
 import com.redline.anistalker.models.AnimeTrack
-import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.Watchlist
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,9 +19,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
+class AnimePageViewModel(
+    private val application: Application,
+    private val savedStateHandle: SavedStateHandle,
+) : AndroidViewModel(application) {
+    private val stateAnimeTrack = "STATE_ANIME_TRACK"
+
     private var currentAnimeId = 0
     private var jobScope = CoroutineScope(Dispatchers.IO)
+    private var episodeJobScope = CoroutineScope(Dispatchers.IO)
+    private var loadingEpisode = false
 
     private val _anime = MutableStateFlow<Anime?>(null)
     val anime = _anime.asStateFlow()
@@ -31,6 +39,11 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
     private val _currentAnime = MutableStateFlow(false)
     val currentAnime = _currentAnime.asStateFlow()
 
+    private var allEpisodeList: List<AnimeEpisodeDetail>? = null
+    private val _episodeList = MutableStateFlow<List<AnimeEpisodeDetail>?>(null)
+    val episodeList = _episodeList.asStateFlow()
+
+    val animeTrack = savedStateHandle.getStateFlow(stateAnimeTrack, AnimeTrack.SUB)
 
     init {
         viewModelScope.launch {
@@ -45,6 +58,7 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
 
     override fun onCleared() {
         jobScope.cancel()
+        episodeJobScope.cancel()
         super.onCleared()
     }
 
@@ -58,6 +72,27 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
                 _anime.value = result
                 launch { _images.value = StalkMedia.Anime.getAnimeImageList(result.id) }
                 launch { updateWatchlist() }
+                launch {
+                    val episodeClip =
+                        if (animeTrack.value == AnimeTrack.SUB) result.episodes.sub
+                        else result.episodes.dub
+
+                    allEpisodeList = StalkMedia.Anime.getAnimeEpisodes(animeId)
+                    _episodeList.value = allEpisodeList?.filter { it.episode <= episodeClip }
+                }
+            }
+        }
+    }
+
+    fun setAnimeTrack(track: AnimeTrack) {
+        if (track != animeTrack.value) {
+            savedStateHandle[stateAnimeTrack] = track
+            anime.value?.run {
+                val episodeClip =
+                    if (animeTrack.value == AnimeTrack.SUB) episodes.sub
+                    else episodes.dub
+
+                _episodeList.value = allEpisodeList?.filter { it.episode <= episodeClip }
             }
         }
     }
@@ -66,8 +101,15 @@ class AnimePageViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
         return UserData.removeAnime(watchId, currentAnimeId)
     }
 
-    fun downloadEpisodes(episodes: List<Int>, quality: VideoQuality, track: AnimeTrack) {
-        DownloadManager.Anime.download(currentAnimeId, episodes, quality, track)
+    fun downloadEpisodes(episode: AnimeEpisodeDetail) {
+        anime.value?.also {
+            DownloadManager.Anime.download(
+                application.applicationContext,
+                it,
+                episode,
+                animeTrack.value
+            )
+        }
     }
 
     fun toggleCurrentAnime() {

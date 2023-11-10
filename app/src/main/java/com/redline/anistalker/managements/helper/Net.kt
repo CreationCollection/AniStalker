@@ -12,10 +12,16 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.SocketTimeoutException
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 object Net {
     private val workPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .retryOnConnectionFailure(true)
+        .connectTimeout(30 * 1000L, TimeUnit.MILLISECONDS)
+        .readTimeout(30 * 1000L, TimeUnit.MILLISECONDS)
+        .callTimeout(0L, TimeUnit.MILLISECONDS)
+        .build()
 
     fun get(url: String): String {
         val request = Request.Builder()

@@ -43,11 +43,12 @@ data class EpisodeDownload(
 data class OngoingEpisodeDownload(
     val id: Int = 0,
     val num: Int = 0,
-    val status: DownloadStatus = DownloadStatus.WAITING,
-    val duration: Float = 0f,
-    val downloadedDuration: Float = 0f,
-    val downloadedSize: Long = 0L,
-    val downloadSpeed: Long = 0L,
+    var status: DownloadStatus = DownloadStatus.WAITING,
+    var duration: Float = 0f,
+    var size: Long = 0L,
+    var downloadedDuration: Float = 0f,
+    var downloadedSize: Long = 0L,
+    var downloadSpeed: Long = 0L,
 )
 
 //data class AnimeDownload (

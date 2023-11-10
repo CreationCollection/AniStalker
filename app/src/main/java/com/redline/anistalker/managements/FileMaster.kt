@@ -9,14 +9,15 @@ import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.AniErrorCode
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
-import com.redline.anistalker.models.AnimeEpisode
-import com.redline.anistalker.models.AnimeId
 import com.redline.anistalker.models.AnimeTitle
 import com.redline.anistalker.models.AnimeType
 import com.redline.anistalker.models.EpisodeDownload
 import com.redline.anistalker.models.VideoRange
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
+import com.redline.anistalker.models.toAnimeId
+import com.redline.anistalker.models.toEpisodes
+import com.redline.anistalker.models.toJSON
 import com.redline.anistalker.utils.combineAsPath
 import com.redline.anistalker.utils.getSafeFloat
 import com.redline.anistalker.utils.map
@@ -306,33 +307,7 @@ object FileMaster {
 }
 
 
-private fun AnimeEpisode.toJSON(): JSONObject {
-    return JSONObject().apply {
-        put("total", total)
-        put("sub", sub)
-        put("dub", dub)
-    }
-}
 
-private fun JSONObject.toEpisodes(): AnimeEpisode {
-    return AnimeEpisode(getInt("sub"), getInt("dub"), getInt("total"))
-}
-
-private fun AnimeId.toJSON(): JSONObject {
-    return JSONObject().apply {
-        put("zoroId", zoroId)
-        put("aniId", anilistId)
-        put("malId", malId)
-    }
-}
-
-private fun JSONObject.toAnimeId(): AnimeId {
-    return AnimeId(
-        zoroId = getInt("zoroId"),
-        anilistId = getInt("aniId"),
-        malId = getInt("malId")
-    )
-}
 
 private fun VideoRange.toJSON(): JSONObject {
     return JSONObject().apply {

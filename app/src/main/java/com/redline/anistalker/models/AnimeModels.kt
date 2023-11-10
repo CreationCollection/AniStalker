@@ -1,5 +1,11 @@
 package com.redline.anistalker.models
 
+import com.redline.anistalker.utils.getSafeInt
+import com.redline.anistalker.utils.getSafeString
+import com.redline.anistalker.utils.map
+import org.json.JSONArray
+import org.json.JSONObject
+
 private val monthCodes = arrayOf(
     "JAN", "FEB", "MAR", "APR", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"
 )
@@ -145,6 +151,49 @@ data class Anime(
                 "S${rel.replace("season ", "")}"
             else rel.uppercase()
         }
+        fun toAnime(value: String): Anime {
+            val json = JSONObject(value)
+            return Anime(
+                id = json.getJSONObject("id").toAnimeId(),
+                title = json.getJSONObject("title").toAnimeTitle(),
+                type = AnimeType.valueOf(json.getString("type")),
+                year = json.getInt("year"),
+                end = json.getJSONObject("end").toAnimeDate(),
+                season = AnimeSeason.valueOf(json.getString("season")),
+                status = AnimeStatus.valueOf(json.getString("status")),
+                image = json.getString("image"),
+                description = json.getString("desc"),
+                otherNames = json.getJSONArray("otherNames").map { getString(it) },
+                episodes = json.getJSONObject("episodes").toEpisodes(),
+                relations = json.getJSONArray("relations").map { getJSONObject(it).toAnimeRelation() },
+                isAdult = json.getBoolean("isAdult"),
+                genres = json.getJSONArray("genres").map { getString(it) }
+            )
+        }
+    }
+
+
+    override fun toString(): String {
+        return JSONObject().apply {
+            put("id", id.toJSON())
+            put("title", title.toJSON())
+            put("type", type.name)
+            put("year", year)
+            put("end", end.toJSON())
+            put("season", season.name)
+            put("status", status.name)
+            put("image", image)
+            put("desc", description)
+            put("otherNames", JSONArray().apply {
+                otherNames.forEach { put(it) }
+            })
+            put("episodes", episodes.toJSON())
+            put("relations", JSONArray().apply {
+                relations.forEach { put(it.toJSON()) }
+            })
+            put("isAdult", isAdult)
+            put("genres", JSONArray().apply { genres.forEach { put(it) } })
+        }.toString()
     }
 }
 
@@ -187,4 +236,78 @@ interface IMediaPage<T> {
     fun page(): Int
     fun hasNextPage(): Boolean
     suspend fun nextPage(): List<T>
+}
+
+fun AnimeEpisode.toJSON(): JSONObject {
+    return JSONObject().apply {
+        put("total", total)
+        put("sub", sub)
+        put("dub", dub)
+    }
+}
+
+fun JSONObject.toEpisodes(): AnimeEpisode {
+    return AnimeEpisode(getInt("sub"), getInt("dub"), getInt("total"))
+}
+
+fun AnimeId.toJSON(): JSONObject {
+    return JSONObject().apply {
+        put("zoroId", zoroId)
+        put("aniId", anilistId)
+        put("malId", malId)
+    }
+}
+
+fun JSONObject.toAnimeId(): AnimeId {
+    return AnimeId(
+        zoroId = getInt("zoroId"),
+        anilistId = getInt("aniId"),
+        malId = getInt("malId")
+    )
+}
+
+fun AnimeTitle.toJSON(): JSONObject {
+    return JSONObject().apply {
+        put("english", english)
+        put("userPreferred", userPreferred)
+    }
+}
+
+fun JSONObject.toAnimeTitle(): AnimeTitle {
+    return AnimeTitle(
+        english = getSafeString("english", ""),
+        userPreferred = getSafeString("userPreferred", "")
+    )
+}
+
+fun AnimeDate.toJSON(): JSONObject {
+    return JSONObject().apply {
+        put("date", date)
+        put("month", month)
+        put("year", year)
+    }
+}
+
+fun JSONObject.toAnimeDate(): AnimeDate {
+    return AnimeDate(
+        date = getSafeInt("date"),
+        month = getSafeInt("month"),
+        year = getSafeInt("year")
+    )
+}
+
+fun AnimeRelation.toJSON(): JSONObject {
+    return JSONObject().apply {
+        put("id", zoroId)
+        put("image", image)
+        put("relation", title)
+    }
+}
+
+fun JSONObject.toAnimeRelation(): AnimeRelation {
+    return AnimeRelation(
+        zoroId = getSafeInt("id"),
+        image = getSafeString("image"),
+        title = getSafeString("relation")
+    )
 }

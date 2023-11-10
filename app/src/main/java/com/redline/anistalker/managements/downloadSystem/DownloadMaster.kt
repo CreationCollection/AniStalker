@@ -47,6 +47,7 @@ data class DownloadTaskModel(
 
 class DownloadTaskImpl(
     override val fileName: String,
+    override val animeId: Int,
     override val episodeId: Int,
     override val duration: Float,
     override val track: AnimeTrack,
@@ -57,6 +58,7 @@ class DownloadTaskImpl(
 
     constructor(
         fileName: String,
+        animeId: Int,
         episodeId: Int,
         duration: Float,
         track: AnimeTrack,
@@ -65,7 +67,7 @@ class DownloadTaskImpl(
         status: DownloadStatus,
         links: List<DownloadTaskModel>,
         subtitle: String,
-    ) : this(fileName, episodeId, duration, track, quality, links, subtitle) {
+    ) : this(fileName, animeId, episodeId, duration, track, quality, links, subtitle) {
         _status = status
 
         if (status == DownloadStatus.WRITING) _size = size
@@ -124,8 +126,8 @@ class DownloadTaskImpl(
         _downloadSpeed.set(0)
         _downloadedSize.set(0L)
 
-        cleanUp()
         statusChange(DownloadStatus.CANCELLED)
+        cleanUp()
     }
 
     override fun onStatusChange(callback: DownloadTask.(DownloadStatus) -> Unit) {
@@ -138,6 +140,7 @@ class DownloadTaskImpl(
 
     override fun toString(): String {
         return JSONObject().apply {
+            put(DownloadTask.ANIME_ID, animeId)
             put(DownloadTask.EPISODE_ID, episodeId)
             put(DownloadTask.FILENAME, fileName)
             put(DownloadTask.DURATION, duration.toDouble())
@@ -269,6 +272,7 @@ class DownloadTaskImpl(
 object DownloadMaster {
 
     suspend fun download(
+        animeId: Int,
         epId: Int,
         fileName: String,
         track: AnimeTrack,
@@ -295,6 +299,7 @@ object DownloadMaster {
 
             val task = DownloadTaskImpl(
                 fileName,
+                animeId = animeId,
                 episodeId = epId,
                 duration = it.files.utilize(0f) { i, r -> r + i.length },
                 track,
@@ -332,6 +337,7 @@ object DownloadMaster {
 
             list += DownloadTaskImpl(
                 fileName = json.getString(DownloadTask.FILENAME),
+                animeId = json.getInt(DownloadTask.ANIME_ID),
                 episodeId = json.getInt(DownloadTask.EPISODE_ID),
                 duration = json.getDouble(DownloadTask.DURATION).toFloat(),
                 track = AnimeTrack.valueOf(json.getString(DownloadTask.TRACK)),

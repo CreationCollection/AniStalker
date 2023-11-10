@@ -6,19 +6,21 @@ import com.redline.anistalker.models.VideoQuality
 
 interface DownloadTask {
     companion object {
-        val DOWNLOADED_DURATION = "TASK_DOWNLOADED_DURATION"
-        val DOWNLOADED_SIZE = "TASK_DOWNLOADED_SIZE"
-        val DOWNLOAD_SPEED = "DOWNLOAD_SPEED"
-        val STATUS = "TASK_STATUS"
-        val EPISODE_ID = "TASK_EPISODE_ID"
-        val SIZE = "TASK_SIZE"
-        val DURATION = "TASK_DURATION"
-        val FILENAME = "TASK_FILENAME"
-        val TRACK = "TASK_TRACK"
-        val QUALITY = "TASK_QUALITY"
+        const val ANIME_ID = "TASK_ANIME_ID"
+        const val DOWNLOADED_DURATION = "TASK_DOWNLOADED_DURATION"
+        const val DOWNLOADED_SIZE = "TASK_DOWNLOADED_SIZE"
+        const val DOWNLOAD_SPEED = "DOWNLOAD_SPEED"
+        const val STATUS = "TASK_STATUS"
+        const val EPISODE_ID = "TASK_EPISODE_ID"
+        const val SIZE = "TASK_SIZE"
+        const val DURATION = "TASK_DURATION"
+        const val FILENAME = "TASK_FILENAME"
+        const val TRACK = "TASK_TRACK"
+        const val QUALITY = "TASK_QUALITY"
     }
 
     val fileName: String
+    val animeId: Int
     val episodeId: Int
     val duration: Float
 

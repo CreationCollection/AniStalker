@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -443,7 +444,6 @@ fun WatchlistCard(
 @Composable
 private fun AnimeDownloadCard_Details(
     details: AnimeDownload,
-    onExpandContent: () -> Unit,
     onClick: () -> Unit,
 ) {
     val primary = MaterialTheme.colorScheme.primary
@@ -527,18 +527,6 @@ private fun AnimeDownloadCard_Details(
                     }
                 }
             }
-
-            Column(
-                modifier = Modifier.fillMaxHeight()
-            ) {
-                Spacer(modifier = Modifier.weight(1f))
-                Image(
-                    painter = awarePainterResource(R.drawable.arrow_down),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(Color.White),
-                    modifier = Modifier.clickable { onExpandContent() }
-                )
-            }
         }
     }
 }
@@ -550,14 +538,14 @@ private fun AnimeDownloadCard_Progress(
     onCancel: () -> Unit,
     onEpisodePause: (episode: OngoingEpisodeDownload) -> Unit,
 ) {
-    var isPaused = false
     val primaryFix = MaterialTheme.colorScheme.onPrimaryContainer
-    val color = MaterialTheme.colorScheme.inversePrimary
-    val status = remember(downloads) {
-        var paused = 0
-        var running = 0
-        var waiting = 0
 
+    var isPaused = false
+    var paused = 0
+    var running = 0
+    var waiting = 0
+
+    LaunchedEffect(downloads.hashCode()) {
         downloads.forEach {
             when (it.status) {
                 DownloadStatus.PAUSED -> paused++
@@ -566,9 +554,7 @@ private fun AnimeDownloadCard_Progress(
                 else -> {}
             }
         }
-
         if (running == 0 && waiting == 0) isPaused = true
-        arrayOf(running, paused, waiting)
     }
 
     val speed = downloads.let {
@@ -608,7 +594,7 @@ private fun AnimeDownloadCard_Progress(
                     modifier = Modifier.size(15.dp)
                 )
                 Text(
-                    text = status[0].toString(),
+                    text = running.toString(),
                     color = primaryFix,
                     fontSize = 12.sp
                 )
@@ -621,7 +607,7 @@ private fun AnimeDownloadCard_Progress(
                     modifier = Modifier.size(15.dp)
                 )
                 Text(
-                    text = status[1].toString(),
+                    text = paused.toString(),
                     color = primaryFix,
                     fontSize = 12.sp
                 )
@@ -634,7 +620,7 @@ private fun AnimeDownloadCard_Progress(
                     modifier = Modifier.size(15.dp)
                 )
                 Text(
-                    text = status[2].toString(),
+                    text = waiting.toString(),
                     color = primaryFix,
                     fontSize = 12.sp
                 )
@@ -678,7 +664,8 @@ private fun AnimeDownloadCard_Progress(
             }
         }
 
-        val rows = ceil(downloads.size / 4.0).toInt()
+        val count = 3
+        val rows = ceil(downloads.size / count.toDouble()).toInt()
         Column (
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -688,14 +675,14 @@ private fun AnimeDownloadCard_Progress(
                     modifier = Modifier
                         .fillMaxWidth()
                 ) {
-                    repeat(4) { y ->
-                        val index = (x * 4) + y
+                    repeat(count) { y ->
+                        val index = (x * count) + y
                         if (index < downloads.size) {
                             val it = downloads[index]
 
                             val value =
                                 if (it.duration <= 0) 0f
-                                else (it.downloadedDuration / it.duration)
+                                else it.downloadedDuration / it.duration
 
                             Box (
                                 modifier = Modifier.weight(1f)
@@ -766,12 +753,9 @@ private fun AnimeDownloadCard_Content(
 fun AnimeDownloadCard(
     animeInfo: AnimeDownload,
     ongoingDownloads: List<OngoingEpisodeDownload>,
-    showContent: Boolean = false,
-    onExpandContent: (() -> Unit)? = null,
     onPauseAll: (() -> Unit)? = null,
     onCancelAll: (() -> Unit)? = null,
     onDownloadClick: ((download: OngoingEpisodeDownload) -> Unit)? = null,
-    onContentClick: ((episodeStart: Int) -> Unit)? = null,
     onClick: (animeId: Int) -> Unit
 ) {
     val isPreview = LocalInspectionMode.current
@@ -790,7 +774,6 @@ fun AnimeDownloadCard(
     ) {
         AnimeDownloadCard_Details(
             details = animeInfo,
-            onExpandContent = { onExpandContent?.let { it() } }
         ) { onClick(animeInfo.animeId.zoroId) }
 
         if (ongoingDownloads.isNotEmpty()) {
@@ -1200,7 +1183,6 @@ private fun P_AnimeDownloadCard_ProgressOnly() {
                 OngoingEpisodeDownload(),
                 OngoingEpisodeDownload(),
             ),
-            showContent = false,
         ) { }
     }
 }
@@ -1213,7 +1195,6 @@ private fun P_AnimeDownloadCard_OnlyContent() {
             animeInfo = AnimeDownload(),
             ongoingDownloads = listOf(
             ),
-            showContent = true,
         ) { }
     }
 }
@@ -1233,7 +1214,6 @@ private fun P_AnimeDownloadCard_AllIn() {
                 ),
                 OngoingEpisodeDownload(duration = 1f, downloadedDuration = 1f),
             ),
-            showContent = true
         ) { }
     }
 }

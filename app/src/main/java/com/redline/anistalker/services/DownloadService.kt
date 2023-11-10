@@ -22,6 +22,7 @@ import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.utils.ExecutionFlow
+import com.redline.anistalker.utils.toSizeFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -274,15 +275,17 @@ class DownloadService : Service() {
 
             task.onStatusChange {
                 val progress =
-                    if (task.status() == DownloadStatus.WRITING) {
+                    if (it == DownloadStatus.WRITING) {
                         if (task.size() <= 0) 0f
-                        else task.downloadedSize() / (task.size() * 100f)
+                        else task.downloadedSize() / task.size() * 100f
                     } else {
                         if (task.duration <= 0) 0f
                         else task.downloadedDuration() / task.duration * 100f
                     }
 
-                val progressString = progress.toString().format("%.2f") + " %"
+                val progressString = String.format("%.2f%%", progress) +
+                        if (it == DownloadStatus.RUNNING) " \u2022 ${ downloadSpeed().toSizeFormat() }"
+                        else ""
 
                 nf.clearActions()
                 when (it) {
@@ -295,6 +298,14 @@ class DownloadService : Service() {
 
                             addAction(R.drawable.pause, "Pause", runStateAction)
                             addAction(R.drawable.close, "Cancel", cancelAction)
+                        }
+                    }
+
+                    DownloadStatus.WRITING -> {
+                        nf.apply {
+                            setProgress(100, progress.roundToInt(), false)
+                            setContentText("Writing...")
+                            setOngoing(true)
                         }
                     }
 
@@ -329,14 +340,6 @@ class DownloadService : Service() {
 
                             addAction(R.drawable.pause, "Pause", runStateAction)
                             addAction(R.drawable.close, "Cancel", cancelAction)
-                        }
-                    }
-
-                    DownloadStatus.WRITING -> {
-                        nf.apply {
-                            setProgress(100, progress.roundToInt(), false)
-                            setContentText("Writing...")
-                            setOngoing(true)
                         }
                     }
 
@@ -430,6 +433,7 @@ class DownloadService : Service() {
     }
 
     private fun updateNotification(id: Int, notification: NotificationCompat.Builder) {
+        if (!notifications.containsKey(id)) return
         if (ActivityCompat.checkSelfPermission(
                 this@DownloadService,
                 Manifest.permission.POST_NOTIFICATIONS

@@ -1,17 +1,19 @@
 package com.redline.anistalker.managements
 
-import android.content.Context
+import android.os.Environment
+import android.util.Log
 import androidx.core.os.CancellationSignal
+import com.google.common.io.Files
 import com.redline.anistalker.managements.downloadSystem.DownloadTask
+import com.redline.anistalker.models.AniError
+import com.redline.anistalker.models.AniErrorCode
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
 import com.redline.anistalker.models.AnimeEpisode
 import com.redline.anistalker.models.AnimeId
 import com.redline.anistalker.models.AnimeTitle
-import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.AnimeType
 import com.redline.anistalker.models.EpisodeDownload
-import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.models.VideoRange
 import com.redline.anistalker.models.Watchlist
 import com.redline.anistalker.models.WatchlistPrivacy
@@ -21,15 +23,9 @@ import com.redline.anistalker.utils.map
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
-import java.io.BufferedWriter
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.nio.channels.FileChannel
-import java.nio.channels.FileLock
 
 object FileMaster {
     private lateinit var baseLocation: File
@@ -45,12 +41,16 @@ object FileMaster {
     private const val downloadSegments = "segments"
 
     fun initialize() {
-        val moviesFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+        val moviesFolder =
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
 
         storageLocation = File(moviesFolder, "AniStalker")
         baseLocation = /*context.filesDir*/ File(storageLocation, "internal")
 
-        Log.d("File Locations", "BaseLocation: ${baseLocation.path}\nStorageLocation: ${storageLocation.path}")
+        Log.d(
+            "File Locations",
+            "BaseLocation: ${baseLocation.path}\nStorageLocation: ${storageLocation.path}"
+        )
     }
 
     fun isDownloadExist(fileLocation: String): Boolean {
@@ -127,7 +127,10 @@ object FileMaster {
 
     fun write(animeDownload: AnimeDownload) {
         val file =
-            File(baseLocation, downloads.combineAsPath(downloadEntry, animeDownload.animeId.zoroId.toString()))
+            File(
+                baseLocation,
+                downloads.combineAsPath(downloadEntry, animeDownload.animeId.zoroId.toString())
+            )
         val data = animeDownload.toJSON().toString(4)
         write(file, data)
     }
@@ -186,49 +189,38 @@ object FileMaster {
 
 
     fun segmentsIntoFile(links: List<String>, filename: String, callback: (length: Long) -> Unit) {
-        val org = File("".combineAsPath(filename) + ".ts")
-        val target = File("".combineAsPath(filename) + ".stalk.lock")
-
-        val size = 4 * 1024
-        val buffer = ByteArray(size)
-        var len = 0
-
-        var output: FileOutputStream? = null
-        var channel: FileChannel? = null
-        var lock: FileLock? = null
+        val temp = File(storageLocation, "$filename.stalk.lock")
+        val org = File(storageLocation, "$filename.ts")
 
         try {
-            if (!target.exists()) {
-                target.parentFile?.mkdirs()
-                target.createNewFile()
-            }
+            temp.parentFile?.mkdirs()
+            temp.createNewFile()
 
-            output = target.outputStream()
-            channel = output.channel
-            lock = channel.lock()
+            temp.outputStream().use { output ->
+                output.channel.lock().use {
+                    val size = 16 * 1024
+                    val buffer = ByteArray(size)
+                    var len: Int
 
-            links.forEach {
-                val stream = File(
-                    baseLocation,
-                    downloads.combineAsPath(downloadSegments, it)
-                ).inputStream()
+                    links.forEach {
+                        val file = File(baseLocation, downloads.combineAsPath(downloadSegments, it))
+                        if (file.exists()) {
+                            file.inputStream().use { input ->
+                                while (input.read(buffer).also { l -> len = l } > 0) {
+                                    output.write(buffer, 0, len)
+                                    callback(len.toLong())
+                                }
+                            }
+                        }
+                    }
 
-                while (stream.read(buffer, 0, size).also { l -> len = l } > 0) {
-                    output.write(buffer, 0, len)
-                    callback(len.toLong())
+                    Files.move(temp, org)
                 }
-
-                stream.close()
             }
-        } catch (ex: IOException) {
-            ex.printStackTrace()
-        } finally {
-            if (lock != null && lock.isValid) lock.release()
-            channel?.close()
-            output?.close()
+        } catch (err: Exception) {
+            err.printStackTrace()
+            throw AniError(AniErrorCode.UNKNOWN)
         }
-
-        target.renameTo(org)
     }
 
 
@@ -239,9 +231,9 @@ object FileMaster {
     fun read(file: File): String {
         val reader = BufferedReader(InputStreamReader(file.inputStream()))
         val builder = StringBuilder()
-        var line: String
+        var line = ""
 
-        while (reader.readLine().also { line = it } != null) {
+        while (reader.readLine()?.also { line = it } != null) {
             builder.append(line)
         }
 
@@ -249,41 +241,31 @@ object FileMaster {
     }
 
     fun write(file: File, data: String) {
-        if (file.exists()) {
-            try {
-                val temp = File(file.absolutePath + ".temp")
-                val org = File(file.absolutePath + ".org")
+        val temp = File(file.absolutePath + ".temp")
 
-                write(temp, data)
+        try {
+            temp.parentFile?.mkdirs()
+            temp.createNewFile()
 
-                file.renameTo(org)
-                temp.renameTo(file)
-                org.delete()
-            } catch (ex: IOException) {
-                ex.printStackTrace()
+            temp.outputStream().use { output ->
+                output.channel.lock().use {
+                    val size = 16 * 1024
+                    val bytes = data.toByteArray()
+                    var offset = 0
+                    var len: Int
+
+                    while (offset < bytes.size) {
+                        len = (bytes.size - offset).coerceIn(0, size)
+                        output.write(bytes, offset, len)
+                        offset += len
+                    }
+                }
             }
-        } else {
-            var stream: FileOutputStream? = null
-            var channel: FileChannel? = null
-            var lock: FileLock? = null
 
-            try {
-                file.parentFile?.mkdirs()
-                file.createNewFile()
-
-                stream = file.outputStream()
-                channel = stream.channel
-                lock = channel.lock()
-
-                val writer = BufferedWriter(OutputStreamWriter(stream))
-                writer.write(data)
-            } catch (ex: IOException) {
-                ex.printStackTrace()
-            } finally {
-                if (lock != null && lock.isValid) lock.release()
-                channel?.close()
-                stream?.close()
-            }
+            Files.move(temp, file)
+        } catch (err: Exception) {
+            err.printStackTrace()
+            temp.delete()
         }
     }
 
@@ -293,35 +275,27 @@ object FileMaster {
         cancelSignal: CancellationSignal,
         callback: (length: Long) -> Unit,
     ) {
-        val size = 4 * 1024
+        val size = 16 * 1024
         val buffer = ByteArray(size)
-        var len = 0
-
-        var output: FileOutputStream? = null
-        var channel: FileChannel? = null
-        var lock: FileLock? = null
+        var len: Int
 
         try {
-            if (!file.exists()) {
-                file.parentFile?.mkdirs()
-                file.createNewFile()
-            }
+            file.parentFile?.mkdirs()
+            file.createNewFile()
 
-            output = file.outputStream()
-            channel = output.channel
-            lock = channel.lock()
+            file.outputStream().use { output ->
+                output.channel.lock().use { _ ->
+                    while (stream.read(buffer, 0, size).also { len = it } > 0) {
+                        if (cancelSignal.isCanceled) break
 
-            while (stream.read(buffer, 0, size).also { len = it } > 0) {
-                if (cancelSignal.isCanceled) break
-                output.write(buffer, 0, len)
-                callback(len.toLong())
+                        output.write(buffer, 0, len)
+                        callback(len.toLong())
+                    }
+                }
             }
-        } catch (ex: IOException) {
-            ex.printStackTrace()
-        } finally {
-            if (lock != null && lock.isValid) lock.release()
-            channel?.close()
-            output?.close()
+        }
+        catch (err: Exception) {
+            throw err
         }
     }
 }
@@ -372,12 +346,11 @@ private fun JSONObject.toVideoRange(): VideoRange {
 private fun EpisodeDownload.toJSON(): JSONObject {
     return JSONObject().apply {
         put("id", id)
-        put("animeId", animeId.toJSON())
+        put("animeId", animeId)
         put("title", title)
-        put("relation", relation)
         put("num", num)
-        put("lang", language.name)
-        put("quality", quality.name)
+        put("subFile", subFile)
+        put("dubFile", dubFile)
         put("intro", intro.toJSON())
         put("outro", outro.toJSON())
         put("duration", duration.toDouble())
@@ -388,12 +361,11 @@ private fun EpisodeDownload.toJSON(): JSONObject {
 private fun JSONObject.toEpisodeDownload(): EpisodeDownload {
     return EpisodeDownload(
         id = getInt("id"),
-        animeId = getJSONObject("animeId").toAnimeId(),
+        animeId = getInt("animeId"),
         title = getString("title"),
-        relation = getString("relation"),
         num = getInt("num"),
-        language = AnimeTrack.valueOf(getString("lang")),
-        quality = VideoQuality.valueOf(getString("quality")),
+        subFile = getString("subFile"),
+        dubFile = getString("dubFile"),
         intro = getJSONObject("intro").toVideoRange(),
         outro = getJSONObject("outro").toVideoRange(),
         duration = getDouble("duration").toFloat(),

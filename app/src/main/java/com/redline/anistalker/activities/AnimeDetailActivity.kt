@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.redline.anistalker.R
+import com.redline.anistalker.activities.screens.EpisodeDownloadSheet
 import com.redline.anistalker.activities.screens.WatchlistOperationSheet
 import com.redline.anistalker.managements.UserData
 import com.redline.anistalker.managements.helper.Net
@@ -128,9 +129,13 @@ class AnimeDetailActivity : ComponentActivity() {
                     val watchlist by viewModel.watchlist.collectAsState()
                     val userWatchlist by UserData.watchlist.collectAsState()
                     val currentAnime by viewModel.currentAnime.collectAsState()
+                    val episodeList by viewModel.episodeList.collectAsState()
+                    val animeTrack by viewModel.animeTrack.collectAsState()
 
                     var showWatchlistSheet by rememberSaveable { mutableStateOf(false) }
                     var showCreationScreen by rememberSaveable { mutableStateOf(false) }
+
+                    var showDownloadScreen by rememberSaveable { mutableStateOf(false) }
 
                     AnimeDetailScreen(
                         anime = anime,
@@ -138,13 +143,28 @@ class AnimeDetailActivity : ComponentActivity() {
                         watchlist = watchlist,
                         currentAnime = currentAnime,
                         onStream = { /*TODO*/ },
-                        onDownload = { /*TODO*/ },
+                        onDownload = { showDownloadScreen = true },
                         onSetCurrentAnime = { viewModel.toggleCurrentAnime() },
                         onAddToWatchlist = { showWatchlistSheet = true },
                         onRemoveWatchlist = { viewModel.removeAnimeFromWatchlist(it) }
                     ) {
                         onBackPressedDispatcher.onBackPressed()
                     }
+
+                    EpisodeDownloadSheet(
+                        show = showDownloadScreen,
+                        episodeList = episodeList,
+                        episodeTrack = animeTrack,
+                        onAnimeTrackChange = {
+                             viewModel.setAnimeTrack(it)
+                        },
+                        onDownloadEpisode = {
+                            viewModel.downloadEpisodes(it)
+                        }
+                    ) {
+                        showDownloadScreen = false
+                    }
+
                     anime?.let {
                         WatchlistOperationSheet(
                             show = showWatchlistSheet,
@@ -501,11 +521,11 @@ private fun AnimeDetailedView(
 
     val currentButtonColors = ButtonDefaults.buttonColors(
         containerColor =
-            if (currentAnime) MaterialTheme.colorScheme.primaryContainer
-            else secondary_background,
+        if (currentAnime) MaterialTheme.colorScheme.primaryContainer
+        else secondary_background,
         contentColor =
-            if (currentAnime) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.primary
+        if (currentAnime) MaterialTheme.colorScheme.onPrimaryContainer
+        else MaterialTheme.colorScheme.primary
     )
 
     Column(
@@ -642,8 +662,8 @@ private fun AnimeDetailedView(
                 val contentColor = LocalContentColor.current
                 Text(
                     text =
-                        if (currentAnime) "Remove as Current Anime"
-                        else "Set As Current Anime",
+                    if (currentAnime) "Remove as Current Anime"
+                    else "Set As Current Anime",
                     fontSize = 12.sp,
                     color = contentColor
                 )

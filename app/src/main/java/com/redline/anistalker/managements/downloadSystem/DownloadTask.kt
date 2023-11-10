@@ -32,7 +32,7 @@ interface DownloadTask {
     fun downloadSpeed(): Long
 
     fun activate()
-    fun start()
+    suspend fun start()
     fun stop()
     fun cancel()
 

@@ -15,6 +15,8 @@ enum class AniErrorCode(val index: Int, val message: String) {
     GOOGLE_SIGNIN_ERROR(-60, "Google SignIn Error")
 }
 
+data class AniErrorMessage(val code: AniErrorCode, val message: String = code.message)
+
 class AniError : Exception {
     var errorCode: AniErrorCode = AniErrorCode.UNKNOWN
         private set
@@ -29,12 +31,12 @@ class AniError : Exception {
 
 class AniResult<T> {
     private val onResult: MutableList<(T) -> Unit> = mutableListOf()
-    private val onError: MutableList<(AniError) -> Unit> = mutableListOf()
+    private val onError: MutableList<(AniErrorMessage) -> Unit> = mutableListOf()
     private val onFinal: MutableList<AniResult<T>.() -> Unit> = mutableListOf()
 
     var result: T? = null
         private set
-    var error: AniError? = null
+    var error: AniErrorMessage? = null
         private set
 
     fun then(callBack: (T) -> Unit): AniResult<T> {
@@ -43,7 +45,7 @@ class AniResult<T> {
         return this
     }
 
-    fun catch(callBack: (AniError) -> Unit): AniResult<T> {
+    fun catch(callBack: (AniErrorMessage) -> Unit): AniResult<T> {
         if (error != null) callBack(error!!)
         else onError.add(callBack)
         return this
@@ -60,7 +62,7 @@ class AniResult<T> {
         onResult.forEach { it(value) }
     }
 
-    fun reject(value: AniError) {
+    fun reject(value: AniErrorMessage) {
         error = value
         onError.forEach { it(value) }
     }

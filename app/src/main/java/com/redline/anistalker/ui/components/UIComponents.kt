@@ -8,7 +8,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,17 +63,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.redline.anistalker.R
 import com.redline.anistalker.managements.helper.Net
+import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.VideoQuality
 import com.redline.anistalker.ui.theme.AniStalkerTheme
-import com.redline.anistalker.ui.theme.aniStalkerColorScheme
 import com.redline.anistalker.ui.theme.md_theme_dark_background
 import com.redline.anistalker.ui.theme.md_theme_dark_outline
-import com.redline.anistalker.ui.theme.md_theme_dark_primary
-import com.redline.anistalker.ui.theme.mid_background
 import com.redline.anistalker.ui.theme.secondary_background
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.math.min
 
 data class NavItem(val unselectedIcon: Int, val selectedIcon: Int, val label: String)
 
@@ -386,10 +382,21 @@ fun AsyncImage(
 
     LaunchedEffect(key1 = url) {
         if (!url.isNullOrBlank()) {
-            val bitmap: Bitmap? = withContext(Dispatchers.IO) {
-                BitmapFactory.decodeStream(Net.getStream(url))
-            }
-            bitmapPainter = bitmap?.let { BitmapPainter(it.asImageBitmap()) }
+            do {
+                try {
+                    val bitmap: Bitmap? = withContext(Dispatchers.IO) {
+                        BitmapFactory.decodeStream(Net.getStream(url))
+                    }
+                    bitmapPainter = bitmap?.let { BitmapPainter(it.asImageBitmap()) }
+                }
+                catch (err: AniError) {
+                    err.printStackTrace()
+                }
+                catch (err: Exception) {
+                    err.printStackTrace()
+                    break
+                }
+            } while (bitmapPainter != null)
         }
     }
 
@@ -397,7 +404,7 @@ fun AsyncImage(
         modifier = Modifier
             .then(modifier)
             .background(loadColor)
-            .also {
+            .let {
                 overlayBrush?.let { brush ->
                     it.drawWithCache {
                         onDrawWithContent {
@@ -405,7 +412,7 @@ fun AsyncImage(
                             drawRect(brush)
                         }
                     }
-                }
+                } ?: it
             }
     ) {
         AnimatedVisibility(

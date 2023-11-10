@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.util.Log
 import com.redline.anistalker.managements.downloadSystem.DownloadTask
 import com.redline.anistalker.models.AnimeEpisodeDetail
 import com.redline.anistalker.models.AnimeTrack
@@ -36,36 +35,79 @@ object DownloadManager {
         val animeBroadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 intent?.run {
+                    val animeId = getIntExtra(DownloadTask.ANIME_ID, 0)
                     val episodeId = getIntExtra(DownloadTask.EPISODE_ID, 0)
                     val status = DownloadStatus.valueOf(
                         getStringExtra(DownloadTask.STATUS)
                             ?: DownloadStatus.PROCESSING.name
                     )
-                    Log.d("Download Receiver", "${ status.name } for episodeId: $episodeId")
-                    when (status) {
-                        DownloadStatus.RUNNING -> {
-                            val duration = getFloatExtra(DownloadTask.DURATION, 0f)
-                            val size = getLongExtra(DownloadTask.SIZE, 0)
-                            val speed = getLongExtra(DownloadTask.DOWNLOAD_SPEED, 0)
-                        }
 
-                        DownloadStatus.WRITING -> {
-                            val size = getLongExtra(DownloadTask.SIZE, 0)
-                            val downloadedSize = getLongExtra(DownloadTask.DOWNLOADED_SIZE, 0)
-                        }
-
-                        DownloadStatus.COMPLETED -> {
-                            val duration = getFloatExtra(DownloadTask.DURATION, 0f)
-                            val size = getLongExtra(DownloadTask.SIZE, 0)
-                        }
-
-                        else -> {
-                            val duration =
-                                getFloatExtra(DownloadTask.DOWNLOADED_DURATION, 0f)
-                            val size = getLongExtra(DownloadTask.DOWNLOADED_SIZE, 0)
+                    ongoingContent[animeId]?.apply {
+                        value = value.map { item ->
+                            if (item.id != episodeId) item
+                            else updateOngoingContent(item, status)
                         }
                     }
                 }
+            }
+
+            private fun Intent.updateOngoingContent(
+                item: OngoingEpisodeDownload,
+                status: DownloadStatus
+            ): OngoingEpisodeDownload {
+                var download = item
+
+                when (status) {
+                    DownloadStatus.RUNNING -> {
+                        val duration =
+                            getFloatExtra(DownloadTask.DOWNLOADED_DURATION, 0f)
+                        val size = getLongExtra(DownloadTask.DOWNLOADED_SIZE, 0)
+                        val speed = getLongExtra(DownloadTask.DOWNLOAD_SPEED, 0)
+
+                        download = download.copy(
+                            downloadedDuration = duration,
+                            downloadedSize = size,
+                            downloadSpeed = speed
+                        )
+                    }
+
+                    DownloadStatus.WRITING -> {
+                        val size = getLongExtra(DownloadTask.SIZE, 0)
+                        val downloadedSize =
+                            getLongExtra(DownloadTask.DOWNLOADED_SIZE, 0)
+
+                        download = download.copy(
+                            size = size,
+                            downloadedSize = downloadedSize,
+                        )
+                    }
+
+                    DownloadStatus.COMPLETED -> {
+                        val duration = getFloatExtra(DownloadTask.DURATION, 0f)
+                        val size = getLongExtra(DownloadTask.SIZE, 0)
+
+                        download = download.copy(
+                            duration = duration,
+                            size = size,
+                        )
+                    }
+
+                    else -> {
+                        val duration =
+                            getFloatExtra(DownloadTask.DURATION, 0f)
+                        val downloadedDuration =
+                            getFloatExtra(DownloadTask.DOWNLOADED_DURATION, 0f)
+                        val size = getLongExtra(DownloadTask.DOWNLOADED_SIZE, 0)
+
+                        download = download.copy(
+                            duration = duration,
+                            downloadedDuration = downloadedDuration,
+                            downloadedSize = size,
+                        )
+                    }
+                }
+
+                return download
             }
         }
 
@@ -82,8 +124,21 @@ object DownloadManager {
             if (!UserData.canDownload(episode.id, track)) return
 
             val episodeDownload = UserData.addAnimeDownload(anime, episode)
+            val ongoingDownload = OngoingEpisodeDownload(
+                id = episodeDownload.id,
+                num = episodeDownload.num,
+                status = DownloadStatus.PROCESSING,
+            )
+
+            ongoingContent.getOrPut(anime.id.zoroId) {
+                MutableStateFlow(emptyList())
+            }.apply {
+                value = value.toMutableList().apply { add(ongoingDownload) }
+            }
+
             DownloadService.commandDownload(
                 context = context,
+                animeId = anime.id.zoroId,
                 episodeId = episodeDownload.id,
                 fileName =
                 if (track == AnimeTrack.SUB) episodeDownload.subFile

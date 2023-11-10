@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -13,7 +14,7 @@ class ExecutionFlow(
 ) {
     private val queue = ConcurrentLinkedQueue<suspend CoroutineScope.() -> Unit>()
     private val currentCount = AtomicInteger(0)
-    private val completionJob = Job()
+    private var completionJob = Job()
 
     fun execute(callback: suspend CoroutineScope.() -> Unit) {
         queue.add(callback)
@@ -24,6 +25,7 @@ class ExecutionFlow(
 
     fun await() {
         runBlocking { completionJob.join() }
+        completionJob = Job()
     }
 
     private fun operateTasks() {
@@ -38,6 +40,50 @@ class ExecutionFlow(
 
                 if (isEmpty()) {
                     completionJob.complete()
+                }
+            }
+        }
+    }
+}
+
+class KeyExecutionFlow<T>(
+    private val concurrentCount: Int,
+    private val scope: CoroutineScope
+) {
+    private val queue = ConcurrentHashMap<T, ConcurrentLinkedQueue<suspend CoroutineScope.(key: T) -> Unit>>()
+    private val currentCount = ConcurrentHashMap<T, AtomicInteger>()
+
+    fun execute(key: T, block: suspend CoroutineScope.(T) -> Unit) {
+        queue.getOrPut(key) { ConcurrentLinkedQueue() }.apply {
+            add(block)
+        }
+        currentCount.getOrPut(key) { AtomicInteger(0) }
+        operateTask(key)
+    }
+
+    fun isEmpty(key: T): Boolean {
+        val count = currentCount[key]
+        val pending = queue[key]?.size
+
+        if (count == null || pending == null) return false
+        return count.get() <= 0 && pending == 0
+    }
+
+    private fun operateTask(key: T) {
+        if (currentCount[key]!!.get() < concurrentCount) queue[key]!!.poll()?.let {
+            currentCount[key]!!.incrementAndGet()
+
+            scope.launch {
+                try { it(key) } catch (err: Exception) { err.printStackTrace() }
+            }.invokeOnCompletion {
+                currentCount[key]!!.decrementAndGet()
+
+                queue[key]?.let {
+                    if (it.size == 0) {
+                        queue.remove(key)
+                        currentCount.remove(key)
+                    }
+                    else operateTask(key)
                 }
             }
         }

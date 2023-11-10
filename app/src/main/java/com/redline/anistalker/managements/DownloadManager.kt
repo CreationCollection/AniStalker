@@ -148,40 +148,40 @@ object DownloadManager {
             )
         }
 
-        fun cancel(epId: Int) {
-
+        fun cancel(context: Context, epId: Int) {
+            DownloadService.commandCancel(context, epId)
         }
 
-        fun pause(epId: Int) {
-
+        fun pause(context: Context, epId: Int) {
+            DownloadService.commandPause(context, epId)
         }
 
-        fun resume(epId: Int) {
-
+        fun resume(context: Context, epId: Int) {
+            DownloadService.commandResume(context, epId)
         }
 
         fun restart(epId: Int) {
 
         }
 
-        fun cancelAll() {
+        fun cancelAll(context: Context) {
+            DownloadService.commandCancelAll(context)
+        }
+
+        fun cancelAll(context: Context, animeId: Int) {
 
         }
 
-        fun cancelAll(animeId: Int) {
-
+        fun pauseAll(context: Context) {
+            DownloadService.commandPauseAll(context)
         }
 
-        fun pauseAll() {
-
+        fun pauseAll(context: Context, animeId: Int) {
+            DownloadService.commandPauseAll(context)
         }
 
-        fun pauseAll(animeId: Int) {
-
-        }
-
-        fun resumeAll() {
-
+        fun resumeAll(context: Context) {
+            DownloadService.commandResumeAll(context)
         }
 
         fun resumeAll(animeId: Int) {

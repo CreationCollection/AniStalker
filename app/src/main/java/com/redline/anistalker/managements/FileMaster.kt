@@ -190,6 +190,16 @@ object FileMaster {
         delete(file)
     }
 
+    fun delete(value: AnimeCard) {
+        val file = File(baseLocation, animeCardLocation)
+        delete(file)
+    }
+
+    fun delete(value: Watchlist) {
+        val file = File(baseLocation, watchlistLocation)
+        delete(file)
+    }
+
 
     fun segmentsIntoFile(links: List<String>, filename: String, callback: (length: Long) -> Unit) {
         val temp = File(storageLocation, "$filename.stalk.lock")

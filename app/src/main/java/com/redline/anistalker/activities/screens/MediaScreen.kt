@@ -70,18 +70,33 @@ fun MediaScreen(
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(
-                items = animeDownloads
-            ) { downloads ->
-                val ongoing by ongoingDownloads(downloads.animeId.zoroId).collectAsState()
+            if (animeDownloads.isNotEmpty()) {
+                items(
+                    items = animeDownloads
+                ) { downloads ->
+                    val ongoing by ongoingDownloads(downloads.animeId.zoroId).collectAsState()
 
-                AnimeDownloadCard(
-                    animeInfo = downloads,
-                    ongoingDownloads = ongoing,
-                    showContent = false,
-                    onExpandContent = { }
-                ) {
+                    AnimeDownloadCard(
+                        animeInfo = downloads,
+                        ongoingDownloads = ongoing,
+                    ) {
 
+                    }
+                }
+            }
+            else {
+                item {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp)
+                    ) {
+                        Text(
+                            text = "No Downloads Yet!",
+                            color = Color.White.copy(alpha = .6f)
+                        )
+                    }
                 }
             }
         }

@@ -88,7 +88,7 @@ object UserData {
 
 //        userInfo = userInfoString ?.let { UserInfo.toUserInfo(it) }
         userAuthToken = pref.getString(PREF_USER_TOKEN, null)
-        _currentAnime.value = currentAnimeString ?.let { Anime.toAnime(it) }
+        _currentAnime.value = currentAnimeString?.let { Anime.toAnime(it) }
 
         userInfo = UserInfo("Anmol011", "Anmol Kashyap")
         _animeList.value = FileMaster.readAllAnimeCards()
@@ -109,8 +109,8 @@ object UserData {
                     size += episode.size
                     duration += episode.duration
                     totalEp++
-                    if (FileMaster.isDownloadExist(episode.subFile)) subEp++
-                    if (FileMaster.isDownloadExist(episode.dubFile)) dubEp++
+                    if (episode.track == AnimeTrack.SUB) subEp++
+                    else dubEp++
                 }
             }
 
@@ -154,10 +154,10 @@ object UserData {
             if (pass) {
                 val watch = _watchlist.value.find { it.id == watchId }?.let {
                     it.copy(
-                        series = it.series.toMutableList().apply {add(animeId) }
+                        series = it.series.toMutableList().apply { add(animeId) }
                     )
                 }
-                watch ?.also {
+                watch?.also {
                     FileMaster.write(it)
                     _watchlist.run {
                         value = value.map { watchlist ->
@@ -221,7 +221,7 @@ object UserData {
             val watch = _watchlist.value.find { it.id == watchId }?.let {
                 it.copy(series = it.series.filterNot { aId -> aId == animeId })
             }
-            watch ?.also {
+            watch?.also {
                 FileMaster.write(watch)
                 _watchlist.apply {
                     value = value.map {
@@ -241,19 +241,22 @@ object UserData {
             // TODO("Archive this watchlist and proceed with response")
             val watch = _watchlist.value.find { it.id == watchId }
 
-            watch ?. also {
+            watch?.also {
                 FileMaster.delete(watch)
                 _watchlist.apply {
                     value = value.filterNot { i -> i.id == watch.id }
                 }
                 result.pass(it)
-            } ?:
-            result.reject(AniErrorMessage(AniErrorCode.INVALID_VALUE, "No Watchlist Found!"))
+            } ?: result.reject(AniErrorMessage(AniErrorCode.INVALID_VALUE, "No Watchlist Found!"))
         }
         return result
     }
 
-    fun updateWatchlist(watchId: Int, title: String, privacy: WatchlistPrivacy): AniResult<Watchlist> {
+    fun updateWatchlist(
+        watchId: Int,
+        title: String,
+        privacy: WatchlistPrivacy
+    ): AniResult<Watchlist> {
         val result = AniResult<Watchlist>()
         operationFlow.execute(watchId) {
             // TODO("Notify Server and proceed with response")
@@ -263,7 +266,7 @@ object UserData {
                 privacy = privacy
             )
             // Demo
-            watch ?.let {
+            watch?.let {
                 FileMaster.write(watch)
                 _watchlist.apply {
                     value = value.map {
@@ -278,31 +281,31 @@ object UserData {
     }
 
     fun canDownload(episodeId: Int, lang: AnimeTrack): Boolean {
-        val episode = downloadContent[episodeId]
+        val episode = downloadContent[trackSign(lang) * episodeId]
         return episode == null ||
                 episode.let {
-                    val file =
-                        if (lang == AnimeTrack.SUB) it.subFile
-                        else it.dubFile
-                    !FileMaster.isDownloadExist(file)
+                    !FileMaster.isDownloadExist(it.file)
                 }
     }
 
     fun addAnimeDownload(
         anime: Anime,
         episode: AnimeEpisodeDetail,
+        lang: AnimeTrack,
     ): EpisodeDownload {
+        val downloadId = trackSign(lang) * episode.id
         val folder = "${anime.title.english}${File.separator}"
 
         val episodeDownload = EpisodeDownload(
-            id = episode.id,
+            id = downloadId,
+            episodeId = episode.id,
             animeId = anime.id.zoroId,
             title = episode.title,
             num = episode.episode,
-            subFile = folder + "EP${episode.episode}-SUB-UHD_${anime.title.english}",
-            dubFile = folder + "EP${episode.episode}-DUB-UHD_${anime.title.english}"
+            track = lang,
+            file = folder + "EP${episode.episode}-${lang.value}-UHD_${anime.title.english}"
         )
-        downloadContent[episodeDownload.id] = episodeDownload
+        downloadContent[downloadId] = episodeDownload
 
         val download = (_animeDownload.value.find {
             it.animeId.zoroId == anime.id.zoroId
@@ -313,59 +316,67 @@ object UserData {
             type = anime.type,
         )).let {
             it.copy(
-                content = it.content.filter { epId -> epId != episode.id },
+                content = it.content - downloadId,
                 ongoingContent =
-                if (it.ongoingContent.contains(episode.id)) it.ongoingContent
-                else it.ongoingContent.toMutableList().apply { add(episode.id) }
+                if (it.ongoingContent.contains(downloadId)) it.ongoingContent
+                else it.ongoingContent + downloadId
             )
         }
 
         downloadHandleFlow.execute {
             _animeDownload.apply {
-                value = value.toMutableList().apply {
-                    if (!any { it.animeId.zoroId == download.animeId.zoroId }) add(download)
-                }
+                value =
+                    if (value.none { it.animeId.zoroId == download.animeId.zoroId }) value + download
+                    else value
             }
 
-            FileMaster.write(download)
             FileMaster.write(episodeDownload)
+            FileMaster.write(download)
         }
         return episodeDownload
     }
 
-    fun completeDownload(animeId: Int, epId: Int, duration: Float, size: Long) {
+    fun completeDownload(animeId: Int, downloadId: Int, duration: Float, size: Long) {
         downloadHandleFlow.execute {
-            downloadContent[epId]?.let {
-                downloadContent[epId] = it.copy(duration = duration, size = size).also(FileMaster::write)
+            val downloadEp = downloadContent[downloadId]
+            downloadEp?.let {
+                downloadContent[downloadId] =
+                    it.copy(duration = duration, size = size).also(FileMaster::write)
             }
             _animeDownload.apply {
                 value = value.map {
+
                     if (it.animeId.zoroId == animeId) {
+                        val episode = it.episodes.run {
+                            AnimeEpisode(
+                                total = total + 1,
+                                sub = sub + if (downloadEp?.track == AnimeTrack.SUB) 1 else 0,
+                                dub = dub + if (downloadEp?.track == AnimeTrack.DUB) 1 else 0,
+                            )
+                        }
                         it.copy(
-                            content = it.content.toMutableList().apply {
-                                if (epId !in this) add(epId)
-                            },
-                            ongoingContent = it.ongoingContent - epId
+                            content = if (downloadId !in it.content) it.content + downloadId else it.content,
+                            ongoingContent = it.ongoingContent - downloadId,
+                            duration = it.duration + duration,
+                            size = it.size + size,
+                            episodes = episode,
                         ).also(FileMaster::write)
-                    }
-                    else it
+                    } else it
                 }
             }
         }
     }
 
-    fun removeAnimeDownload(animeId: Int, epId: Int) {
+    fun removeAnimeDownload(animeId: Int, downloadId: Int) {
         downloadHandleFlow.execute {
-            downloadContent.remove(epId)
-            _animeDownload.apply {
-                value = value.map {
-                    if (it.animeId.zoroId == animeId) {
-                        it.copy(
-                            content = it.content.filterNot { ep -> ep == epId },
-                            ongoingContent = it.ongoingContent.filterNot { ep -> ep != epId }
-                        )
-                    } else it
-                }
+            downloadContent.remove(downloadId)
+            _animeDownload.value = _animeDownload.value.map {
+                if (it.animeId.zoroId == animeId) {
+                    it.copy(
+                        content = if (downloadId !in it.content) it.content + downloadId else it.content,
+                        ongoingContent = it.ongoingContent - downloadId
+                    )
+                } else it
             }
         }
     }
@@ -393,4 +404,6 @@ object UserData {
             }
         }
     }
+
+    private fun trackSign(track: AnimeTrack): Int = if (track == AnimeTrack.SUB) 1 else -1
 }

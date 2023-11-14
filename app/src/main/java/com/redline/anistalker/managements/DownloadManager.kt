@@ -146,7 +146,7 @@ object DownloadManager {
         ) {
             if (!UserData.canDownload(episode.id, track)) return
 
-            val episodeDownload = UserData.addAnimeDownload(anime, episode)
+            val episodeDownload = UserData.addAnimeDownload(anime, episode, track)
             val ongoingDownload = OngoingEpisodeDownload(
                 id = episodeDownload.id,
                 num = episodeDownload.num,
@@ -162,10 +162,8 @@ object DownloadManager {
             DownloadService.commandDownload(
                 context = context,
                 animeId = anime.id.zoroId,
-                episodeId = episodeDownload.id,
-                fileName =
-                if (track == AnimeTrack.SUB) episodeDownload.subFile
-                else episodeDownload.dubFile,
+                episodeId = episodeDownload.episodeId,
+                fileName = episodeDownload.file,
                 track = track,
                 quality = VideoQuality.UHD,
             )

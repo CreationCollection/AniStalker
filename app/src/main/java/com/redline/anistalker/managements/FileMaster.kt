@@ -11,6 +11,7 @@ import com.redline.anistalker.models.AniErrorCode
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
 import com.redline.anistalker.models.AnimeTitle
+import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.AnimeType
 import com.redline.anistalker.models.EpisodeDownload
 import com.redline.anistalker.models.VideoRange
@@ -67,6 +68,10 @@ object FileMaster {
             downloads.combineAsPath(downloadSegments, uid)
         )
         return file.length()
+    }
+
+    fun getEpisodeSize(fileName: String): Long {
+        return File(storageLocation, fileName).length()
     }
 
     fun readAllAnimeCards(): List<AnimeCard> {
@@ -345,11 +350,12 @@ private fun JSONObject.toVideoRange(): VideoRange {
 private fun EpisodeDownload.toJSON(): JSONObject {
     return JSONObject().apply {
         put("id", id)
+        put("episodeId", episodeId)
         put("animeId", animeId)
         put("title", title)
         put("num", num)
-        put("subFile", subFile)
-        put("dubFile", dubFile)
+        put("file", file)
+        put("track", track.name)
         put("intro", intro.toJSON())
         put("outro", outro.toJSON())
         put("duration", duration.toDouble())
@@ -360,11 +366,12 @@ private fun EpisodeDownload.toJSON(): JSONObject {
 private fun JSONObject.toEpisodeDownload(): EpisodeDownload {
     return EpisodeDownload(
         id = getInt("id"),
+        episodeId = getInt("episodeId"),
         animeId = getInt("animeId"),
         title = getString("title"),
         num = getInt("num"),
-        subFile = getString("subFile"),
-        dubFile = getString("dubFile"),
+        file = getString("file"),
+        track = AnimeTrack.valueOf(getString("track")),
         intro = getJSONObject("intro").toVideoRange(),
         outro = getJSONObject("outro").toVideoRange(),
         duration = getDouble("duration").toFloat(),

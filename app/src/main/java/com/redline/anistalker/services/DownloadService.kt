@@ -139,7 +139,7 @@ class DownloadService : Service() {
         downloadProcessingFlow = ExecutionFlow(PROCESSING_LIMIT, serviceScope)
         downloadingFlow = ExecutionFlow(Runtime.getRuntime().availableProcessors(), serviceScope)
 
-        FileMaster.initialize()
+        FileMaster.initialize(this)
 
         downloadTasks += DownloadMaster.restoreDownloads().onEach { task ->
             if (task.status() == DownloadStatus.RUNNING) {
@@ -387,6 +387,7 @@ class DownloadService : Service() {
                 }
 
                 else -> {
+                    it.putExtra(DownloadTask.DURATION, task.duration)
                     it.putExtra(DownloadTask.DOWNLOADED_DURATION, task.downloadedDuration())
                     it.putExtra(DownloadTask.DOWNLOADED_SIZE, task.downloadedSize())
                 }

@@ -10,6 +10,7 @@ import com.redline.anistalker.models.AniResult
 import com.redline.anistalker.models.Anime
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
+import com.redline.anistalker.models.AnimeEpisode
 import com.redline.anistalker.models.AnimeEpisodeDetail
 import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.EpisodeDownload
@@ -51,6 +52,8 @@ data class UserInfo(val username: String, val name: String) {
 }
 
 object UserData {
+    private var initialized = false
+
     private var userInfo: UserInfo? = null
     private var userAuthToken: String? = null
 
@@ -76,6 +79,9 @@ object UserData {
     private val downloadContent = mutableMapOf<Int, EpisodeDownload>()
 
     fun initialize(context: Context) {
+        if (initialized) return
+
+        initialized = true
         val pref = context.getSharedPreferences(PREF_USER, MODE_PRIVATE)
         val userInfoString = pref.getString(UserInfo.USERINFO, null)
         val currentAnimeString = pref.getString(PREF_CURRENT_ANIME, null)
@@ -87,9 +93,32 @@ object UserData {
         userInfo = UserInfo("Anmol011", "Anmol Kashyap")
         _animeList.value = FileMaster.readAllAnimeCards()
         _watchlist.value = FileMaster.readAllWatchlist()
-        _animeDownload.value = FileMaster.readAllDownloadEntries()
+
         FileMaster.readAllDownloadContent().forEach {
             downloadContent[it.id] = it
+        }
+        _animeDownload.value = FileMaster.readAllDownloadEntries().map {
+            var size = 0L
+            var duration = 0f
+            var totalEp = 0
+            var subEp = 0
+            var dubEp = 0
+
+            it.content.forEach { epId ->
+                downloadContent[epId]?.let { episode ->
+                    size += episode.size
+                    duration += episode.duration
+                    totalEp++
+                    if (FileMaster.isDownloadExist(episode.subFile)) subEp++
+                    if (FileMaster.isDownloadExist(episode.dubFile)) dubEp++
+                }
+            }
+
+            it.copy(
+                size = size,
+                duration = duration,
+                episodes = AnimeEpisode(total = totalEp, sub = subEp, dub = dubEp)
+            )
         }
 
         CoroutineScope(Dispatchers.Default).launch {
@@ -304,17 +333,21 @@ object UserData {
         return episodeDownload
     }
 
-    fun completeDownload(animeId: Int, epId: Int) {
+    fun completeDownload(animeId: Int, epId: Int, duration: Float, size: Long) {
         downloadHandleFlow.execute {
+            downloadContent[epId]?.let {
+                downloadContent[epId] = it.copy(duration = duration, size = size).also(FileMaster::write)
+            }
             _animeDownload.apply {
                 value = value.map {
-                    if (it.animeId.zoroId == animeId)
+                    if (it.animeId.zoroId == animeId) {
                         it.copy(
                             content = it.content.toMutableList().apply {
-                                if (!any { id -> id == epId }) add(epId)
+                                if (epId !in this) add(epId)
                             },
-                            ongoingContent = it.ongoingContent.filterNot { id -> id == epId }
-                        )
+                            ongoingContent = it.ongoingContent - epId
+                        ).also(FileMaster::write)
+                    }
                     else it
                 }
             }

@@ -907,7 +907,7 @@ fun EpisodeDownloadView(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp, horizontal = 20.dp)
+            .padding(vertical = 10.dp)
             .clickable { onClick?.let { it(details.id) } }
     ) {
         CenteredBox(

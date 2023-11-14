@@ -144,6 +144,14 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private fun openDownloadDetails(animeId: Int) {
+        startActivity(
+            Intent(this, DownloadDetailActivity::class.java).apply {
+                putExtra("animeId", animeId)
+            }
+        )
+    }
+
     private fun NavGraphBuilder.homeScreenComposable() = composable(
         route = screenHome,
         enterTransition = { slideInVertically { it / 2 } + fadeIn() },
@@ -247,6 +255,8 @@ class MainActivity : ComponentActivity() {
             ongoingDownloads = {
                 viewModel.getAnimeOngoingDownload(it) ?: MutableStateFlow(emptyList())
             }
-        )
+        ) {
+            openDownloadDetails(it)
+        }
     }
 }

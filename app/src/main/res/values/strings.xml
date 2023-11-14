@@ -6,5 +6,6 @@
     <string name="title_activity_splash_screen">AniSplashScreen</string>
     <string name="title_activity_main">MainActivity</string>
     <string name="title_activity_anime_detail">AnimeDetailActivity</string>
+    <string name="title_activity_download_detail">DownloadDetailActivity</string>
     <string name="title_activity_watchlist_detail">WatchlistDetailActivity</string>
 </resources>

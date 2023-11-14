@@ -60,6 +60,14 @@ object FileMaster {
         return File(storageLocation, fileLocation).exists()
     }
 
+    fun getDownloadSegmentSize(uid: String): Long {
+        val file = File(
+            baseLocation,
+            downloads.combineAsPath(downloadSegments, uid)
+        )
+        return file.length()
+    }
+
     fun readAllAnimeCards(): List<AnimeCard> {
         val file = File(baseLocation, animeCardLocation)
         val list = mutableListOf<AnimeCard>()

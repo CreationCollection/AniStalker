@@ -63,19 +63,20 @@ class DownloadTaskImpl(
         duration: Float,
         track: AnimeTrack,
         quality: VideoQuality,
-        size: Long,
         status: DownloadStatus,
         links: List<DownloadTaskModel>,
         subtitle: String,
     ) : this(fileName, animeId, episodeId, duration, track, quality, links, subtitle) {
         _status = status
 
-        if (status == DownloadStatus.WRITING) _size = size
-        else _downloadedSize.set(size)
-
-        _downloadedDuration.set(links.utilize(0f) { item, result ->
-            result + item.length
-        }.toDouble())
+        links.forEach {
+            if (it.isDownloaded) {
+                val length = FileMaster.getDownloadSegmentSize(it.file)
+                _downloadedSize.addAndGet(length)
+                _size += length
+                _downloadedDuration.addAndGet(it.length.toDouble())
+            }
+        }
     }
 
     private val updateFlow = ExecutionFlow(1, CoroutineScope(Dispatchers.IO))
@@ -342,7 +343,6 @@ object DownloadMaster {
                 duration = json.getDouble(DownloadTask.DURATION).toFloat(),
                 track = AnimeTrack.valueOf(json.getString(DownloadTask.TRACK)),
                 quality = VideoQuality.valueOf(json.getString(DownloadTask.QUALITY)),
-                size = json.getLong(DownloadTask.SIZE),
                 status = DownloadStatus.valueOf(json.getString(DownloadTask.STATUS)),
                 links = links,
                 subtitle = json.getString(DOWNLOAD_TASK_SUBTITLE),

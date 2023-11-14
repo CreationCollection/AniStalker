@@ -36,7 +36,8 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun MediaScreen(
     animeDownloads: List<AnimeDownload>,
-    ongoingDownloads: (Int) -> StateFlow<List<OngoingEpisodeDownload>>
+    ongoingDownloads: (Int) -> StateFlow<List<OngoingEpisodeDownload>>,
+    onClick: (Int) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -80,7 +81,7 @@ fun MediaScreen(
                         animeInfo = downloads,
                         ongoingDownloads = ongoing,
                     ) {
-
+                        onClick(it)
                     }
                 }
             }
@@ -125,7 +126,9 @@ private fun PreviewScreen() {
                         )
                     )
                 }
-            )
+            ) {
+
+            }
         }
     }
 }

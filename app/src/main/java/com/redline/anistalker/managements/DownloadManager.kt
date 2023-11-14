@@ -19,15 +19,37 @@ object DownloadManager {
     private var initialized = false
 
     fun initialize(context: Context) {
+        if (initialized) return
+
         context.applicationContext.registerReceiver(
             Anime.animeBroadcastReceiver,
             IntentFilter(DownloadService.ACTION_STATE_CHANGE)
         )
+        Anime.initialize()
         DownloadService.commandStartService(context) { }
+
         initialized = true
     }
 
     object Anime {
+        fun initialize() {
+            if (initialized) return
+
+            UserData.animeDownload.value.forEach { anime ->
+                val list = mutableListOf<OngoingEpisodeDownload>()
+                anime.ongoingContent.forEach { episode ->
+                    UserData.getDownloadContent(episode)?.run {
+                        val v = OngoingEpisodeDownload(
+                            id = id,
+                            num = num,
+                        )
+                        list.add(v)
+                    }
+                }
+                ongoingContent[anime.animeId.zoroId] = MutableStateFlow(list)
+            }
+        }
+
         private val ongoingContent: MutableMap<Int, MutableStateFlow<List<OngoingEpisodeDownload>>> =
             mutableMapOf()
         val animeDownloads = UserData.animeDownload
@@ -45,17 +67,21 @@ object DownloadManager {
                     ongoingContent[animeId]?.apply {
                         value = value.map { item ->
                             if (item.id != episodeId) item
-                            else updateOngoingContent(item, status)
+                            else updateOngoingContent(animeId, item, status)
+                        }.let {
+                            if (status == DownloadStatus.WRITING) it.filterNot { item -> item.id == episodeId }
+                            else it
                         }
                     }
                 }
             }
 
             private fun Intent.updateOngoingContent(
+                animeId: Int,
                 item: OngoingEpisodeDownload,
                 status: DownloadStatus
             ): OngoingEpisodeDownload {
-                var download = item
+                var download = item.copy(status = status)
 
                 when (status) {
                     DownloadStatus.RUNNING -> {
@@ -86,10 +112,7 @@ object DownloadManager {
                         val duration = getFloatExtra(DownloadTask.DURATION, 0f)
                         val size = getLongExtra(DownloadTask.SIZE, 0)
 
-                        download = download.copy(
-                            duration = duration,
-                            size = size,
-                        )
+                        UserData.completeDownload(animeId, item.id, duration, size)
                     }
 
                     else -> {

@@ -1,5 +1,6 @@
 package com.redline.anistalker.managements
 
+import android.content.Context
 import android.os.Environment
 import android.util.Log
 import androidx.core.os.CancellationSignal
@@ -43,7 +44,7 @@ object FileMaster {
     private const val downloadSources = "sources"
     private const val downloadSegments = "segments"
 
-    fun initialize() {
+    fun initialize(context: Context) {
         val moviesFolder =
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
 

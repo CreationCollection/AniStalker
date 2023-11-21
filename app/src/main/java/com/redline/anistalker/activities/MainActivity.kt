@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -127,8 +126,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                        },
-                        contentWindowInsets = WindowInsets(0)
+                        }
                     ) { pads ->
                         Box(
                             modifier = Modifier
@@ -192,45 +190,27 @@ class MainActivity : ComponentActivity() {
     ) {
         val viewModel by viewModels<HomeViewModel>()
 
-        val spotlights by viewModel.spotlightAnime.collectAsState()
+        val suggestions by viewModel.suggestions.collectAsState()
         val currentAnime by viewModel.currentAnime.collectAsState()
-        val animeList by viewModel.animeList.collectAsState()
-        val spotlightError by viewModel.spotlightError.collectAsState()
-        val error by viewModel.error.collectAsState()
-
-        val animeCategories = viewModel.animeCategories
+        val recentAnime by viewModel.recentAnime.collectAsState()
+        val categoryItems by viewModel.browseList.collectAsState()
 
         HomeScreen(
-            spotlights = spotlights,
-            animeList = animeList,
-            animeCategories = animeCategories,
             currentAnime = currentAnime,
             lastCurrentAnimeEpisode = 0,
-            loadingError = error?.second,
-            spotlightError = spotlightError?.second,
-
-            onSpotlightClicked = {
-                openAnimeDetails(it.id)
-            },
-            onLoadSpotlight = { viewModel.loadSpotlightAnime() },
-            onStreamCurrentAnime = {
-
-            },
-            onDownloadCurrentAnime = {
-
-            },
-            onCurrentAnimeClicked = {
-
-            },
-            onCategoryChanged = {
-                viewModel.changeCategory(it)
-            },
-            onAnimeCardClicked = {
-                openAnimeDetails(it.id)
+            suggestions = suggestions,
+            recentAnime = recentAnime,
+            categories = viewModel.animeCategories,
+            onLoadNextPage = { viewModel.loadNextPage() },
+            categoryItems = categoryItems,
+            onCategoryChange = { viewModel.changeCategory(viewModel.animeCategories[it]) },
+            onAnimeClick = { openAnimeDetails(it) },
+            searchResult = { viewModel.searchResult },
+            onLoadSearchResult = { viewModel.loadNextSearchPage() },
+            onSearch = { v, f ->
+                viewModel.searchAnime(v, f)
             }
-        ) {
-            viewModel.loadNextPage()
-        }
+        )
     }
 
     private fun NavGraphBuilder.searchScreenComposable() = composable(

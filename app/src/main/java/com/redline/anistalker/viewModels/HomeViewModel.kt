@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.redline.anistalker.managements.StalkMedia
 import com.redline.anistalker.managements.UserData
 import com.redline.anistalker.models.AniError
-import com.redline.anistalker.models.AniErrorCode
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeCategory
+import com.redline.anistalker.models.AnimeSearchFilter
 import com.redline.anistalker.models.AnimeSpotlight
 import com.redline.anistalker.models.IMediaPage
 import com.redline.anistalker.utils.fill
@@ -17,22 +17,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 class HomeViewModel() : ViewModel() {
-    private var isSpotlightLoaded = false
-    private var page: IMediaPage<AnimeCard>? = null
-    private var jobScope = CoroutineScope(Dispatchers.Main)
-
-    private val _spotlightAnime = MutableStateFlow(emptyList<AnimeSpotlight>())
-    val spotlightAnime = _spotlightAnime.asStateFlow()
-    val currentAnime = UserData.currentAnime
-
-    private val _animeList = MutableStateFlow(listOf<AnimeCard?>())
-    val animeList = _animeList.asStateFlow()
-    private val _spotlightError = MutableStateFlow<Pair<AniErrorCode, String>?>(null)
-    val spotlightError = _spotlightError.asStateFlow()
-    private val _error = MutableStateFlow<Pair<AniErrorCode, String>?>(null)
-    val error = _error.asStateFlow()
 
     val animeCategories = listOf(
         AnimeCategory.RECENTLY_UPDATED,
@@ -42,93 +29,115 @@ class HomeViewModel() : ViewModel() {
         AnimeCategory.MOST_POPULAR,
     )
 
-    init {
-        loadSpotlightAnime()
-        changeCategory(animeCategories[0])
-    }
+    // Browsing items
+    private var currentCategory = AnimeCategory.MOST_FAVORITE
+    private var browsingPage: IMediaPage<AnimeCard>? = null
+    private val _browseList = MutableStateFlow(emptyAnimeList())
+    val browseList = _browseList.asStateFlow()
 
-    override fun onCleared() {
-        super.onCleared()
-        jobScope.cancel()
+    private var browsingJob = CoroutineScope(Dispatchers.IO)
+
+
+    // Search items
+    private val _searchResult = MutableStateFlow(emptyAnimeList())
+    val searchResult = _searchResult.asStateFlow()
+
+    private var searchQuery = ""
+    private var searchFilter = AnimeSearchFilter()
+    private var searchPage: IMediaPage<AnimeCard>? = StalkMedia.Anime.filter(searchFilter)
+
+    private var searchingJob = CoroutineScope(Dispatchers.IO)
+
+
+    // Suggestions
+    private val _suggestions = MutableStateFlow(emptyList<AnimeSpotlight?>())
+    val suggestions = _suggestions.asStateFlow()
+
+    // Current And Recent Animes
+    val currentAnime = UserData.currentAnime
+    val recentAnime = MutableStateFlow(emptyList<AnimeCard>()).asStateFlow()
+
+    init {
+        _suggestions.value = listOf<AnimeSpotlight?>().fill(10) { null }
+        viewModelScope.launch(Dispatchers.IO) {
+            do try {
+                _suggestions.value = StalkMedia.Anime.getSpotlightAnime()
+                break
+            }
+            catch (err: AniError) {
+                err.printStackTrace()
+            }
+            catch (err: IOException) {
+                err.printStackTrace()
+                break
+            } while (true)
+        }
+        changeCategory(AnimeCategory.RECENTLY_UPDATED)
     }
 
     fun changeCategory(category: AnimeCategory) {
-        jobScope.cancel()
-        jobScope = CoroutineScope(Dispatchers.Main)
-
-        page = StalkMedia.Anime.getAnimeByCategory(category)
-        _animeList.value = listOf()
-        loadNextPage()
+        if (currentCategory != category) {
+            browsingPage = null
+            revalidateBrowsingJob()
+            _browseList.value = emptyAnimeList()
+            browsingPage = StalkMedia.Anime.getAnimeByCategory(category)
+        }
     }
 
     fun loadNextPage() {
-        page?.run {
-            if (isLoading() || !hasNextPage()) return
-            jobScope.launch {
-                safeExecute(
-                    catch = { _error.value = it }
-                ) {
-                    updateAnimeList(emptyAnimeList())
-                    val list = mutableListOf<AnimeCard>()
-                    nextPage().toCollection(list)
-                    updateAnimeList(list)
-                }
+        if (browsingPage != null && !browsingPage!!.isLoading() && browsingPage!!.hasNextPage()) {
+            fillEmptyAnime { _browseList }
+            browsingJob.launch {
+                fillAnime(browsingPage!!.nextPage()) { _browseList }
             }
         }
     }
 
-    fun loadSpotlightAnime() {
-        if (isSpotlightLoaded) return
+    fun searchAnime(query: String, filter: AnimeSearchFilter) {
+        if (query != searchQuery || filter != searchFilter) {
+            searchQuery = query
+            searchFilter = filter
+            searchPage = null
+            revalidateSearchingJob()
+            _searchResult.value = emptyAnimeList()
+            searchPage =
+                if (query.isBlank()) StalkMedia.Anime.filter(filter)
+                else StalkMedia.Anime.search(query, filter)
+        }
+    }
 
-        viewModelScope.launch {
-            safeExecute(
-                catch = { _spotlightError.value = it }
-            ) {
-                _spotlightAnime.value = StalkMedia.Anime.getSpotlightAnime()
-                isSpotlightLoaded = true
+    fun loadNextSearchPage() {
+        if (searchPage != null && !searchPage!!.isLoading() && searchPage!!.hasNextPage()) {
+            fillEmptyAnime { _searchResult }
+            searchingJob.launch {
+               fillAnime(searchPage!!.nextPage()) { _searchResult }
             }
         }
     }
 
-    private fun updateAnimeList(values: List<AnimeCard?>) {
-        _animeList.value = values.toCollection(_animeList.value.filterNotNull().toMutableList())
+    private fun fillEmptyAnime(list: () -> MutableStateFlow<List<AnimeCard?>>) {
+        list().apply {
+            value = value.filterNotNull() + emptyAnimeList()
+        }
     }
 
-    private suspend fun safeExecute(
-        catch: (Pair<AniErrorCode, String>) -> Unit,
-        calculation: suspend () -> Unit
-    ) {
-        try {
-            calculation()
-        } catch (ex: AniError) {
-            ex.printStackTrace()
-            var message = ""
-            message = when (ex.errorCode) {
-                AniErrorCode.SERVER_ERROR ->
-                    "Something is wrong at server size."
-
-                AniErrorCode.SLOW_NETWORK_ERROR ->
-                    "Unstable Internet Connection detected"
-
-                AniErrorCode.CONNECTION_ERROR ->
-                    "Unable to reach server, connection problem happened"
-
-                else ->
-                    "Unrecognized Error: ${ex.message}"
-            }
-            catch(Pair(ex.errorCode, message))
-        } catch (ex: Exception) {
-            ex.printStackTrace()
-            catch(
-                Pair(
-                    AniErrorCode.UNKNOWN,
-                    ex.message ?: AniErrorCode.UNKNOWN.message
-                )
-            )
+    private fun fillAnime(items: List<AnimeCard>, list: () -> MutableStateFlow<List<AnimeCard?>>) {
+        list().apply {
+            value = value.filterNotNull() + items
         }
     }
 
     private fun emptyAnimeList(): List<AnimeCard?> {
         return mutableListOf<AnimeCard?>().fill(10) { null }
+    }
+
+    private fun revalidateBrowsingJob() {
+        browsingJob.cancel()
+        browsingJob = CoroutineScope(Dispatchers.IO)
+    }
+
+    private fun revalidateSearchingJob() {
+        searchingJob.cancel()
+        searchingJob = CoroutineScope(Dispatchers.IO)
     }
 }

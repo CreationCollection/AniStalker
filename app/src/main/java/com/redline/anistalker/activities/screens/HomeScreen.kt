@@ -1,9 +1,12 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+
 package com.redline.anistalker.activities.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import android.graphics.BitmapFactory
+import android.os.Bundle
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,23 +14,35 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -36,130 +51,330 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.Wallpapers
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.redline.anistalker.R
+import com.redline.anistalker.managements.helper.Net
+import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.Anime
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeCategory
-import com.redline.anistalker.models.AnimeEpisode
+import com.redline.anistalker.models.AnimeScore
+import com.redline.anistalker.models.AnimeSearchFilter
+import com.redline.anistalker.models.AnimeSort
 import com.redline.anistalker.models.AnimeSpotlight
+import com.redline.anistalker.models.AnimeTrack
+import com.redline.anistalker.models.AnimeType
 import com.redline.anistalker.ui.components.AnimeCardView
 import com.redline.anistalker.ui.components.AsyncImage
 import com.redline.anistalker.ui.components.BigEpisodeTail
 import com.redline.anistalker.ui.components.CenteredBox
-import com.redline.anistalker.ui.components.DownloadButton
-import com.redline.anistalker.ui.components.ErrorSnackBar
-import com.redline.anistalker.ui.components.StreamButton
+import com.redline.anistalker.ui.components.DropDownMenu
+import com.redline.anistalker.ui.components.ExpandableBlock
 import com.redline.anistalker.ui.components.rememberSimmerValue
 import com.redline.anistalker.ui.components.simmerEnd
 import com.redline.anistalker.ui.components.simmerStart
 import com.redline.anistalker.ui.theme.AniStalkerTheme
 import com.redline.anistalker.ui.theme.aniStalkerColorScheme
+import com.redline.anistalker.ui.theme.dark_background
+import com.redline.anistalker.ui.theme.secondary_background
+import com.redline.anistalker.utils.blurImage
+import com.redline.anistalker.utils.toTitleCase
 import com.redline.anistalker.utils.wrap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import java.io.IOException
 
+private val animeSortList = AnimeSort.values().map { it.value.toTitleCase() }
+private val animeScoreList = AnimeScore.values().map { it.value.toTitleCase() }
+private val animeTypeList = AnimeType.values().map { it.value.toTitleCase() }
+private val animeTrackList = AnimeTrack.values().map { it.value }
 
-@OptIn(ExperimentalFoundationApi::class)
+private val filterSaver = Saver<MutableState<AnimeSearchFilter>, Bundle>(
+    save = {
+        Bundle().apply {
+            putString("sort", it.value.sort.name)
+            putString("score", it.value.score.name)
+            putString("type", it.value.type.name)
+            putString("track", it.value.track.name)
+        }
+    },
+    restore = {
+        mutableStateOf(
+            AnimeSearchFilter(
+                AnimeSort.valueOf(it.getString("sort", "DEFAULT")),
+                AnimeScore.valueOf(it.getString("score", "ALL")),
+                AnimeType.valueOf(it.getString("type", "ALL")),
+                AnimeTrack.valueOf(it.getString("track", "ALL")),
+            )
+        )
+    }
+)
+
+private const val simmerOffset = .2f
+
 @Composable
 fun HomeScreen(
-    spotlights: List<AnimeSpotlight>,
-    animeList: List<AnimeCard?>,
-    animeCategories: List<AnimeCategory>,
-    currentAnime: Anime? = null,
-    lastCurrentAnimeEpisode: Int = 0,
-    spotlightError: String? = null,
-    loadingError: String? = null,
-    onLoadSpotlight: (() -> Unit)? = null,
-    onSpotlightClicked: ((spotlight: AnimeSpotlight) -> Unit)? = null,
-    onStreamCurrentAnime: (() -> Unit)? = null,
-    onDownloadCurrentAnime: (() -> Unit)? = null,
-    onCurrentAnimeClicked: (() -> Unit)? = null,
-    onCategoryChanged: ((category: AnimeCategory) -> Unit)? = null,
-    onAnimeCardClicked: ((anime: AnimeCard) -> Unit)? = null,
+    currentAnime: Anime?,
+    lastCurrentAnimeEpisode: Int,
+
+    suggestions: List<AnimeSpotlight?>,
+    recentAnime: List<AnimeCard>,
+
+    categories: List<AnimeCategory>,
+    categoryItems: List<AnimeCard?>,
+    onCategoryChange: (Int) -> Unit,
     onLoadNextPage: () -> Unit,
+
+    onAnimeClick: (Int) -> Unit,
+
+    searchResult: () -> StateFlow<List<AnimeCard?>>,
+    onLoadSearchResult: () -> Unit,
+    onSearch: (String, AnimeSearchFilter) -> Unit,
 ) {
-    var currentCategory by rememberSaveable {
-        mutableIntStateOf(0)
-    }
-    var coverValue by rememberSaveable {
-        mutableFloatStateOf(0f)
-    }
-    val simmerValue by rememberSimmerValue()
-    val isInPreview = LocalInspectionMode.current
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchFilter by rememberSaveable(saver = filterSaver) { mutableStateOf(AnimeSearchFilter()) }
 
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                coverValue -= available.y
-                return super.onPreScroll(available, source)
-            }
+    val scope = rememberCoroutineScope()
+    val filterTabState = rememberLazyListState()
+    val pagerState = rememberPagerState(initialPage = 2) { 3 }
+
+    var selectedCategory by rememberSaveable { mutableIntStateOf(0) }
+
+    val changePage = remember {
+        { page: Int ->
+            scope.launch { pagerState.animateScrollToPage(page) }
+            scope.launch { filterTabState.animateScrollToItem(page) }
+            Unit
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .nestedScroll(nestedScrollConnection)
-            .fillMaxSize()
-    ) {
-        stickyHeader {
-            AnimatedVisibility(visible = coverValue > 40f) {
-                Box(
-                    modifier = Modifier
-                        .background(aniStalkerColorScheme.background.copy(alpha = .8f))
-                        .fillMaxWidth()
-                        .statusBarsPadding()
+    Column {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .shadow(4.dp)
+                .background(aniStalkerColorScheme.background)
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                SearchBarView(
+                    query = searchQuery,
+                    onQueryChanged = {
+                        searchQuery = it
+                    },
+                    onSearch = {
+                        if (pagerState.currentPage != 0 && it.isNotBlank()) changePage(0)
+                        onSearch(it, searchFilter)
+                    }
                 )
             }
-        }
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                divider = { },
+                indicator = {
+                    TabRowDefaults.Indicator(
+                        height = 1.dp,
+                        modifier = Modifier.tabIndicatorOffset(it[pagerState.currentPage])
+                    )
+                },
+                containerColor = Color.Transparent,
+                edgePadding = 0.dp,
+                modifier = Modifier
+                    .wrapContentWidth()
+            ) {
+                repeat(3) { item ->
+                    val selected = item == pagerState.currentPage
+                    val color =
+                        if (selected) MaterialTheme.colorScheme.primary
+                        else Color.White
 
-        item {
-            if (spotlightError == null)
-                AnimeSpotlightView(
-                    spotlights = spotlights,
-                    onSpotlightClicked = { onSpotlightClicked?.run { this(it) } }
-                )
-            else {
-                Box(
-                    modifier = Modifier
-                        .height(250.dp)
-                        .padding(20.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
+                    val title = when (item) {
+                        0 -> "Search"
+                        1 -> "Suggestions"
+                        2 -> "Browse"
+                        else -> "Tab"
+                    }
+
+                    Tab(
+                        selected = item == pagerState.currentPage,
+                        onClick = {
+                            changePage(item)
+                        },
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color.White.copy(alpha = .2f))
-                            .clickable { onLoadSpotlight?.run { this() } }
-                            .fillMaxSize()
+                            .height(50.dp)
                     ) {
                         Text(
-                            text = spotlightError,
-                            color = MaterialTheme.colorScheme.error
+                            text = title,
+                            color = color,
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .padding(horizontal = 10.dp)
                         )
+                    }
+                }
+            }
+        }
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+        ) { page ->
+            when (page) {
+                0 -> {
+                    SearchTab(
+                        searchFilter = searchFilter,
+                        onAnimeClick = onAnimeClick,
+                        onAnimeImageClick = { },
+                        searchResult = searchResult,
+                        onLoadSearchResult = onLoadSearchResult,
+                    ) {
+                        searchFilter = it
+                        onSearch(searchQuery, it)
+                    }
+                }
+
+                1 -> {
+                    SuggestionTab(
+                        suggestions = suggestions,
+                        currentAnime = currentAnime,
+                        lastCurrentAnimeEpisode = lastCurrentAnimeEpisode,
+                        recentAnime = recentAnime,
+                        onAnimeImageClick = { },
+                        onAnimeClick = onAnimeClick,
+                        scope = scope,
+                    )
+                }
+
+                else -> {
+                    BrowsingTab(
+                        categories = categories,
+                        selected = selectedCategory,
+                        items = categoryItems,
+                        onLoadNextPage = onLoadNextPage,
+                        onAnimeClick = onAnimeClick
+                    ) {
+                        selectedCategory = it
+                        onCategoryChange(it)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchTab(
+    searchFilter: AnimeSearchFilter,
+    onAnimeClick: (Int) -> Unit,
+    onAnimeImageClick: (String) -> Unit,
+    searchResult: () -> StateFlow<List<AnimeCard?>>,
+    onLoadSearchResult: () -> Unit,
+    onFilterChange: (AnimeSearchFilter) -> Unit,
+) {
+    val simmerValue by rememberSimmerValue()
+    val animeList by searchResult().collectAsState()
+    val listState = rememberLazyListState()
+
+    val loadMore by remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull {
+                it.index == listState.layoutInfo.totalItemsCount - 10
+            } != null
+        }
+    }
+
+    if (loadMore) {
+        onLoadSearchResult()
+    }
+
+    LazyColumn(state = listState) {
+        item {
+            AnimeFilterView(
+                filter = searchFilter,
+                onFilterChanged = {
+                    onFilterChange(it)
+                }
+            )
+        }
+
+        itemsIndexed(
+            items = animeList
+        ) { i, card ->
+            AnimeCardView(
+                animeCard = card,
+                showOwner = false,
+                simmerValue = (simmerValue * simmerOffset * i).wrap(0f, 1f),
+                onImageClick = { onAnimeImageClick(it.image) }
+            ) {
+                onAnimeClick(it.id)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionTab(
+    suggestions: List<AnimeSpotlight?>,
+    currentAnime: Anime?,
+    lastCurrentAnimeEpisode: Int,
+    recentAnime: List<AnimeCard>,
+
+    scope: CoroutineScope,
+
+    onAnimeImageClick: (String) -> Unit,
+    onAnimeClick: (Int) -> Unit,
+) {
+    val simmerValue by rememberSimmerValue()
+
+    LazyColumn {
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                itemsIndexed(
+                    items = suggestions
+                ) { i, card ->
+                    AnimeSuggestionView(
+                        value = card,
+                        simmer = (simmerValue * simmerOffset * i).wrap(0f, 1f),
+                        scope = scope,
+                    ) { id ->
+                        onAnimeClick(id)
                     }
                 }
             }
@@ -169,50 +384,50 @@ fun HomeScreen(
             CurrentAnimeView(
                 currentAnime = currentAnime,
                 lastCurrentAnimeEpisode = lastCurrentAnimeEpisode,
-                onStreamCurrentAnime = { onStreamCurrentAnime?.run { this() } },
-                onDownloadCurrentAnime = { onDownloadCurrentAnime?.run { this() } },
-                onCurrentAnimeClicked = { onCurrentAnimeClicked?.run { this() } }
+                onImageClick = onAnimeImageClick,
+                onClick = onAnimeClick
             )
         }
 
-        stickyHeader {
-            AnimeCategoryTabView(
-                animeCategory = animeCategories,
-                selectedTab = currentCategory,
-            ) {
-                currentCategory = it
-                onCategoryChanged?.run { this(animeCategories[it]) }
-            }
-        }
-
-        if (animeList.isEmpty() && loadingError == null)
-            onLoadNextPage()
-
-        itemsIndexed(
-            items = animeList,
-            key = { index, it -> if (it == null || isInPreview) index + 3 else it.id + 10000 },
-            contentType = { _, it -> if (it == null) null else AnimeCard::class.java }
-        ) { index, it ->
-            if (index > animeList.size - 5 && loadingError == null)
-                onLoadNextPage()
-
-            AnimeCardView(
-                animeCard = it,
-                showOwner = false,
-                simmerValue = (simmerValue + (index * .1f)).wrap(0f, 1f)
-            ) {
-                onAnimeCardClicked?.run { this(it) }
-            }
-        }
-
-        if (loadingError != null) item {
-            Box(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                ErrorSnackBar(
-                    loadingError = loadingError
+        if (recentAnime.isNotEmpty()) {
+            item {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.height(40.dp)
                 ) {
-                    onLoadNextPage()
+                    Text(
+                        text = "Continue Watching",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            itemsIndexed(
+                items = recentAnime
+            ) { i, card ->
+                AnimeCardView(
+                    animeCard = card,
+                    simmerValue = (simmerValue * simmerOffset * i).wrap(0f, 1f),
+                    showOwner = false,
+                    onImageClick = { onAnimeImageClick(card.image) }
+                ) {
+                    onAnimeClick(it.id)
+                }
+            }
+        } else {
+            item {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                ) {
+                    Text(
+                        text = "Recent Anime will be shown here.",
+                        color = Color.White.copy(alpha = .4f)
+                    )
                 }
             }
         }
@@ -220,233 +435,383 @@ fun HomeScreen(
 }
 
 @Composable
-private fun AnimeSpotlightSimmerView() {
-    val corners = RoundedCornerShape(10.dp)
+private fun BrowsingTab(
+    categories: List<AnimeCategory>,
+    selected: Int,
+    items: List<AnimeCard?>,
+    onLoadNextPage: () -> Unit,
+    onAnimeClick: (Int) -> Unit,
+    onCategoryChange: (Int) -> Unit,
+) {
     val simmerValue by rememberSimmerValue()
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(300.dp)
+    val categoryListState = rememberLazyListState()
+    val listState = rememberLazyListState()
+    val loadMore by remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull {
+                it.index == listState.layoutInfo.totalItemsCount - 10
+            } != null
+        }
+    }
+
+    if (loadMore) {
+        onLoadNextPage()
+    }
+
+    LazyColumn(
+        state = listState
     ) {
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth(),
+                state = categoryListState,
+            ) {
+                itemsIndexed(
+                    items = categories
+                ) { index, category ->
+                    FilterChip(
+                        selected = selected == index,
+                        onClick = {
+                            if (selected != index) onCategoryChange(index)
+                        },
+                        label = {
+                            Text(
+                                text = category.label,
+                                color = LocalContentColor.current,
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = secondary_background
+                        ),
+                        modifier = Modifier
+                            .height(30.dp),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                }
+            }
 
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            LaunchedEffect(selected) {
+                categoryListState.animateScrollToItem(selected)
+            }
+        }
+
+        itemsIndexed(
+            items = items
+        ) { i, anime ->
+            AnimeCardView(
+                animeCard = anime,
+                showOwner = false,
+                simmerValue = (simmerValue * simmerOffset * i).wrap(0f, 1f)
+            ) {
+                onAnimeClick(it.id)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchBarView(
+    query: String,
+    onQueryChanged: (String) -> Unit,
+    onSearch: (String) -> Unit,
+) {
+    LaunchedEffect(query) {
+        delay(500)
+        onSearch(query)
+    }
+
+    Row(
+        modifier = Modifier
+            .background(secondary_background, RoundedCornerShape(10.dp))
+            .fillMaxWidth()
+            .height(50.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 20.dp)
+                .width(60.dp)
+                .height(50.dp)
         ) {
-            Box(
+            val color = LocalContentColor.current
+            Image(
+                painter = painterResource(id = R.drawable.search),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(color),
                 modifier = Modifier
-                    .clip(corners)
-                    .background(lerp(simmerStart, simmerEnd, simmerValue.wrap(0f, 1f)))
-                    .width(80.dp)
-                    .height(14.dp)
+                    .size(20.dp)
             )
+        }
 
-            Box(
-                modifier = Modifier
-                    .clip(corners)
-                    .background(lerp(simmerStart, simmerEnd, (simmerValue + .1f).wrap(0f, 1f)))
-                    .fillMaxWidth(.75f)
-                    .height(18.dp)
-            )
+        Box (
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxHeight()
+                .weight(1f)
+        ){
+            if (query.isEmpty()) {
+                Text(
+                    text = "Search Anime here",
+                    color = Color.White.copy(alpha = .5f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                )
+            }
 
-            Box(
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChanged,
+                singleLine = true,
+                keyboardActions = KeyboardActions(onSearch = { onSearch(query) }),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                textStyle = TextStyle(color = Color.White),
                 modifier = Modifier
-                    .clip(corners)
-                    .background(lerp(simmerStart, simmerEnd, (simmerValue + .2f).wrap(0f, 1f)))
-                    .fillMaxWidth(.6f)
-                    .height(18.dp)
+                    .fillMaxWidth(),
+            ) {
+                it()
+            }
+        }
+
+        if (query.isNotEmpty()) Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .clickable {
+                    onQueryChanged("")
+                }
+                .width(60.dp)
+                .height(50.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.close),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(20.dp)
             )
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AnimeSpotlightPopulatedView(
-    spotlights: List<AnimeSpotlight>,
-    onSpotlightClicked: (AnimeSpotlight) -> Unit
+private fun AnimeFilterView(
+    filter: AnimeSearchFilter,
+    onFilterChanged: (AnimeSearchFilter) -> Unit
 ) {
-    val spotlightPageCount = Int.MAX_VALUE
-    val spotlightSize = spotlights.size.coerceAtLeast(1)
-
-    val spotlightPagerState = rememberPagerState(
-        initialPage = (spotlightPageCount / 2).let { half ->
-            half - (half % spotlightSize)
-        }
-    ) {
-        spotlightPageCount
+    var isFilterExpanded by rememberSaveable {
+        mutableStateOf(false)
     }
 
-    val simmerValue by rememberSimmerValue()
-
-    LaunchedEffect(key1 = spotlights) {
-        while (true) {
-            delay(6000)
-            if (spotlightPagerState.currentPage >= spotlightPageCount) {
-                spotlightPagerState.scrollToPage(0)
-            } else if (spotlightPagerState.currentPage == 0) {
-                spotlightPagerState.scrollToPage(spotlightPageCount - 1)
-            } else {
-                spotlightPagerState.animateScrollToPage(
-                    spotlightPagerState.currentPage + 1
-                )
-            }
-        }
-    }
-
-    val spotlightIndex = spotlightPagerState.currentPage % spotlightSize
-    val spotlight = spotlights[spotlightIndex]
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(300.dp)
+            .padding(horizontal = 30.dp, vertical = 20.dp)
     ) {
-        // Pager
-        HorizontalPager(
-            state = spotlightPagerState,
-            beyondBoundsPageCount = 1,
+        ExpandableBlock(
+            label = "Filters",
+            expand = isFilterExpanded,
+            height = 40.dp,
+            onClick = { isFilterExpanded = !isFilterExpanded },
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(.9f)
         ) {
-            AsyncImage(
-                url = spotlights[it % spotlightSize].image,
-                loadColor = lerp(simmerStart, simmerEnd, simmerValue),
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .drawWithCache {
-                        onDrawWithContent {
-                            drawContent()
-                            drawRect(
-                                Brush.verticalGradient(
-                                    0f to Color.Transparent,
-                                    1f to aniStalkerColorScheme.background,
-                                )
-                            )
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Row(
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Score",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = .6f),
+                            modifier = Modifier
+                                .padding(vertical = 10.dp)
+                        )
+                        DropDownMenu(
+                            label = filter.score.value.toTitleCase(),
+                            valueList = animeScoreList,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            onFilterChanged(filter.copy(score = AnimeScore.values()[it]))
                         }
                     }
-            )
-        }
+                    Spacer(modifier = Modifier.size(10.dp))
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Sort",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = .6f),
+                            modifier = Modifier
+                                .padding(vertical = 10.dp)
+                        )
+                        DropDownMenu(
+                            label = filter.sort.value.toTitleCase(),
+                            valueList = animeSortList,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            onFilterChanged(filter.copy(sort = AnimeSort.values()[it]))
+                        }
+                    }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(15.dp, Alignment.CenterVertically),
-            modifier = Modifier
-                .fillMaxHeight(.8f)
-                .align(Alignment.TopEnd)
-                .padding(end = 30.dp)
-        ) {
-            repeat(spotlights.size) {
-                val isActive = spotlightIndex == it
-                val height =
-                    if (isActive) 12.dp
-                    else 6.dp
-                val color =
-                    if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = .8f)
-                    else MaterialTheme.colorScheme.primary.copy(alpha = .2f)
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(color)
-                        .height(height)
-                        .width(6.dp)
-                )
-            }
-        }
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 20.dp)
-        ) {
-            Text(
-                text = "#${spotlight.rank} Spotlight",
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = spotlight.title.english,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold,
-            )
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                BigEpisodeTail(spotlight.episodes)
-                Divider(
-                    modifier = Modifier.size(4.dp),
-                    color = Color.White.copy(alpha = .4f)
-                )
-                Text(
-                    text = spotlight.type.value,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-
-//                Spacer(modifier = Modifier.weight(1f))
-
-//                OutlinedButton(
-//                    onClick = { onSpotlightClicked(spotlight) },
-//                    modifier = Modifier
-//                        .height(35.dp)
-//                ) {
-//                    val contentColor = LocalContentColor.current
-//                    Image(
-//                        painter = painterResource(R.drawable.play),
-//                        contentDescription = null,
-//                        colorFilter = ColorFilter.tint(contentColor),
-//                        modifier = Modifier.size(18.dp)
-//                    )
-//                    Spacer(modifier = Modifier.size(8.dp))
-//                    Text(
-//                        text = "Check Out",
-//                        color = contentColor,
-//                        fontSize = 12.sp,
-//                        textAlign = TextAlign.Center,
-//                    )
-//                }
+                }
+                Spacer(modifier = Modifier.size(10.dp))
+                Row(
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Anime Type",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = .6f),
+                            modifier = Modifier
+                                .padding(vertical = 10.dp)
+                        )
+                        DropDownMenu(
+                            label = filter.type.value.toTitleCase(),
+                            valueList = animeTypeList,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            onFilterChanged(filter.copy(type = AnimeType.values()[it]))
+                        }
+                    }
+                    Spacer(modifier = Modifier.size(10.dp))
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Anime Track",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = .6f),
+                            modifier = Modifier
+                                .padding(vertical = 10.dp)
+                        )
+                        DropDownMenu(
+                            label = filter.track.value,
+                            valueList = animeTrackList,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            onFilterChanged(filter.copy(track = AnimeTrack.values()[it]))
+                        }
+                    }
+                }
             }
         }
     }
-
 }
 
 @Composable
-fun AnimeSpotlightView(
-    spotlights: List<AnimeSpotlight>,
-    onSpotlightClicked: (spotlight: AnimeSpotlight) -> Unit
+private fun AnimeSuggestionView(
+    value: AnimeSpotlight?,
+    simmer: Float = 0f,
+    scope: CoroutineScope,
+    onClick: (Int) -> Unit,
 ) {
-    Box {
-        AnimatedVisibility(
-            visible = spotlights.isEmpty(),
-            enter = fadeIn(),
-            exit = fadeOut(),
-        ) {
-            AnimeSpotlightSimmerView()
+    val color = lerp(secondary_background, dark_background, simmer)
+    val shape = RoundedCornerShape(10.dp)
+    val context = LocalContext.current
+
+    var image by remember {
+        mutableStateOf<ImageBitmap?>(null)
+    }
+
+    LaunchedEffect(value) {
+        scope.launch(Dispatchers.IO) {
+            if (value != null) do try {
+                BitmapFactory.decodeStream(Net.getStream(value.image)).run {
+                    context.blurImage(this).let { image = it.asImageBitmap() }
+                }
+            } catch (err: AniError) {
+                err.printStackTrace()
+            } catch (err: IOException) {
+                err.printStackTrace(); break
+            }
+            while (image == null)
         }
-        AnimatedVisibility(
-            visible = spotlights.isNotEmpty(),
-            enter = fadeIn(),
-            exit = fadeOut(),
+    }
+
+    Row(
+        modifier = Modifier
+            .heightIn(max = 160.dp)
+    ) {
+        Crossfade(
+            targetState = value,
+            label = "Title",
+            modifier = Modifier
         ) {
-            if (spotlights.isNotEmpty()) AnimeSpotlightPopulatedView(
-                spotlights = spotlights,
-                onSpotlightClicked = { onSpotlightClicked(it) }
-            )
+            if (it != null) {
+                val rankString = String.format("%02d", it.rank)
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(40.dp)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f, true)
+                    ) {
+                        Text(
+                            text = it.title.english,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .rotate(-90f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(
+                        text = rankString,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color.White,
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .background(color, shape)
+                        .fillMaxHeight()
+                        .width(40.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.size(10.dp))
+        Crossfade(targetState = image, label = "Image") {
+            if (it != null) {
+                Image(
+                    painter = BitmapPainter(it),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillWidth,
+                    alignment = Alignment.TopCenter,
+                    modifier = Modifier
+                        .clip(shape)
+                        .clickable {
+                            if (value != null) onClick(value.id)
+                        }
+                        .fillMaxHeight()
+                        .aspectRatio(.7f, true)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .background(color, shape)
+                        .fillMaxHeight()
+                        .aspectRatio(.7f, true)
+                )
+            }
         }
     }
 }
@@ -455,9 +820,8 @@ fun AnimeSpotlightView(
 fun CurrentAnimeView(
     currentAnime: Anime?,
     lastCurrentAnimeEpisode: Int = 0,
-    onStreamCurrentAnime: (() -> Unit)? = null,
-    onDownloadCurrentAnime: (() -> Unit)? = null,
-    onCurrentAnimeClicked: (() -> Unit)? = null,
+    onImageClick: (String) -> Unit,
+    onClick: (Int) -> Unit,
 ) {
     currentAnime?.let { anime ->
         val simmerValue by rememberSimmerValue()
@@ -495,9 +859,9 @@ fun CurrentAnimeView(
                             RoundedCornerShape(6.dp)
                         )
                         .clip(RoundedCornerShape(6.dp))
-                        .width(95.dp)
                         .fillMaxHeight()
-                        .clickable { onCurrentAnimeClicked?.run { this() } }
+                        .aspectRatio(.7f, true)
+                        .clickable { onImageClick(currentAnime.image) }
                 )
 
                 Spacer(modifier = Modifier.size(10.dp))
@@ -557,24 +921,17 @@ fun CurrentAnimeView(
                             }
                         }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
+                    OutlinedButton(
+                        onClick = { onClick(currentAnime.id.zoroId) },
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(45.dp)
                     ) {
-                        StreamButton(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(35.dp)
-                        ) {
-                            onStreamCurrentAnime?.run { this() }
-                        }
-                        Spacer(modifier = Modifier.size(10.dp))
-                        DownloadButton(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(35.dp)
-                        ) {
-                            onDownloadCurrentAnime?.run { this() }
-                        }
+                        Text(
+                            text = "Watch",
+                            color = LocalContentColor.current
+                        )
                     }
                 }
             }
@@ -583,139 +940,15 @@ fun CurrentAnimeView(
 
 }
 
-@Composable
-fun AnimeCategoryTabView(
-    animeCategory: List<AnimeCategory>,
-    selectedTab: Int = 0,
-    onCategorySelected: (item: Int) -> Unit
-) {
-    ScrollableTabRow(
-        selectedTabIndex = selectedTab,
-        containerColor = aniStalkerColorScheme.background,
-        edgePadding = 20.dp,
-        indicator = {
-            TabRowDefaults.Indicator(
-                Modifier.tabIndicatorOffset(it[selectedTab])
-            )
-        },
-        modifier = Modifier
-            .background(aniStalkerColorScheme.background)
-            .statusBarsPadding()
-    ) {
-        repeat(animeCategory.size) { index ->
-            Tab(
-                selected = selectedTab == index,
-                onClick = { onCategorySelected(index) },
-                modifier = Modifier
-                    .height(60.dp)
-            ) {
-                Text(
-                    text = animeCategory[index].label,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                )
-            }
-        }
-    }
-}
-
-// Previewies
-/*
 @Preview
-@Composable
-private fun P_AnimeSpotlightView() {
-    AniStalkerTheme {
-        Surface(
-            color = aniStalkerColorScheme.background
-        ) {
-            AnimeSpotlightView(
-                spotlights = listOf(
-                    AnimeSpotlight(episodes = AnimeEpisode(total = 12)),
-                    AnimeSpotlight(),
-                    AnimeSpotlight(),
-                    AnimeSpotlight(),
-                    AnimeSpotlight(),
-                    AnimeSpotlight(),
-                    AnimeSpotlight(),
-                    AnimeSpotlight(),
-                    AnimeSpotlight(),
-                    AnimeSpotlight(),
-                )
-            ) {
-
-            }
-        }
-    }
-}
-
-@Preview
-@Composable
-private fun P_CurrentAnimeView() {
-    AniStalkerTheme {
-        Surface(
-            color = aniStalkerColorScheme.background
-        ) {
-            CurrentAnimeView(currentAnime = Anime()) {
-            }
-        }
-    }
-}
-
-@Preview(device = "id:pixel_3a", wallpaper = Wallpapers.RED_DOMINATED_EXAMPLE)
-@Composable
-private fun P_AnimeCategoryView() {
-    AniStalkerTheme(dynamicColor = true) {
-        Surface(
-            color = aniStalkerColorScheme.background
-        ) {
-            AnimeCategoryView(
-                animeCategory = listOf(
-                    AnimeCategory.RECENTLY_UPDATED to 20,
-                    AnimeCategory.TOP_AIRING to 30,
-                    AnimeCategory.COMPLETED to 40,
-                    AnimeCategory.MOST_FAVORITE to 20,
-                    AnimeCategory.MOST_POPULAR to 10
-                ),
-                onLoadNextCategoryPage = { },
-                onAnimeCardClicked = { }
-            ) { category, _ ->
-                if (category == AnimeCategory.TOP_AIRING) null
-                else AnimeCard()
-            }
-        }
-    }
-}
-*/
-@Preview(wallpaper = Wallpapers.GREEN_DOMINATED_EXAMPLE)
 @Composable
 private fun P_HomeScreen() {
-    AniStalkerTheme(dynamicColor = true) {
+    AniStalkerTheme {
         Surface(
-            modifier = Modifier.fillMaxSize(),
             color = aniStalkerColorScheme.background,
             contentColor = Color.White
         ) {
-            HomeScreen(
-                listOf(
-                    AnimeSpotlight(image = "", episodes = AnimeEpisode(total = 12)),
-                    AnimeSpotlight(image = ""),
-                    AnimeSpotlight(image = ""),
-                    AnimeSpotlight(image = ""),
-                    AnimeSpotlight(image = ""),
-                ),
-                animeList = listOf(
-                    AnimeCard(),
-                ),
-                animeCategories = listOf(
-                    AnimeCategory.RECENTLY_UPDATED,
-                    AnimeCategory.TOP_AIRING,
-                    AnimeCategory.COMPLETED,
-                    AnimeCategory.MOST_FAVORITE,
-                    AnimeCategory.MOST_POPULAR
-                ),
-                currentAnime = Anime(episodes = AnimeEpisode(total = 1023)),
-            ) {
-            }
+
         }
     }
 }

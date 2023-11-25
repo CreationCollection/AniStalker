@@ -2,6 +2,7 @@
 
 package com.redline.anistalker.activities.screens
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.compose.animation.Crossfade
@@ -70,12 +71,10 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -108,14 +107,14 @@ import com.redline.anistalker.ui.theme.AniStalkerTheme
 import com.redline.anistalker.ui.theme.aniStalkerColorScheme
 import com.redline.anistalker.ui.theme.dark_background
 import com.redline.anistalker.ui.theme.secondary_background
-import com.redline.anistalker.utils.blurImage
 import com.redline.anistalker.utils.toTitleCase
 import com.redline.anistalker.utils.wrap
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
 
 private val animeSortList = AnimeSort.values().map { it.value.toTitleCase() }
@@ -277,7 +276,6 @@ fun HomeScreen(
                         recentAnime = recentAnime,
                         onAnimeImageClick = { },
                         onAnimeClick = onAnimeClick,
-                        scope = scope,
                     )
                 }
 
@@ -355,8 +353,6 @@ private fun SuggestionTab(
     lastCurrentAnimeEpisode: Int,
     recentAnime: List<AnimeCard>,
 
-    scope: CoroutineScope,
-
     onAnimeImageClick: (String) -> Unit,
     onAnimeClick: (Int) -> Unit,
 ) {
@@ -374,7 +370,6 @@ private fun SuggestionTab(
                     AnimeSuggestionView(
                         value = card,
                         simmer = (simmerValue * simmerOffset * i).wrap(0f, 1f),
-                        scope = scope,
                     ) { id ->
                         onAnimeClick(id)
                     }
@@ -714,23 +709,21 @@ private fun AnimeFilterView(
 private fun AnimeSuggestionView(
     value: AnimeSpotlight?,
     simmer: Float = 0f,
-    scope: CoroutineScope,
     onClick: (Int) -> Unit,
 ) {
     val color = lerp(secondary_background, dark_background, simmer)
     val shape = RoundedCornerShape(10.dp)
-    val context = LocalContext.current
 
-    var image by remember {
-        mutableStateOf<ImageBitmap?>(null)
+    var image by rememberSaveable {
+        mutableStateOf<Bitmap?>(null)
     }
 
     LaunchedEffect(value) {
-        scope.launch(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             if (value != null) do try {
-                BitmapFactory.decodeStream(Net.getStream(value.image)).run {
-                    context.blurImage(this).let { image = it.asImageBitmap() }
-                }
+                image = BitmapFactory.decodeStream(Net.getStream(value.image))
+            } catch (err: CancellationException) {
+                break;
             } catch (err: AniError) {
                 err.printStackTrace()
             } catch (err: IOException) {
@@ -794,10 +787,10 @@ private fun AnimeSuggestionView(
         Crossfade(targetState = image, label = "Image") {
             if (it != null) {
                 Image(
-                    painter = BitmapPainter(it),
+                    painter = BitmapPainter(it.asImageBitmap()),
                     contentDescription = null,
-                    contentScale = ContentScale.FillWidth,
-                    alignment = Alignment.TopCenter,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.Center,
                     modifier = Modifier
                         .clip(shape)
                         .clickable {

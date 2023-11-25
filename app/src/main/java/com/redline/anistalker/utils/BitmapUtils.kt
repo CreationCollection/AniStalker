@@ -12,6 +12,7 @@ import android.renderscript.ScriptIntrinsicBlur
 
 fun Context.blurImage(image: Bitmap, radius: Float = 20f): Bitmap {
     return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        val bitmap = image.copy(image.config, true)
         val rs = RenderScript.create(this)
         val bitmapAlloc = Allocation.createFromBitmap(rs, image)
         val output = Allocation.createTyped(rs, bitmapAlloc.type)
@@ -20,9 +21,9 @@ fun Context.blurImage(image: Bitmap, radius: Float = 20f): Bitmap {
             setInput(bitmapAlloc)
             forEach(output)
         }
-        output.copyTo(image)
+        output.copyTo(bitmap)
         rs.destroy()
-        image
+        bitmap
     } else {
         image
     }

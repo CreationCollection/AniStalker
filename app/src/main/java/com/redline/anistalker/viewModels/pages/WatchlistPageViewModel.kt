@@ -21,6 +21,8 @@ class WatchlistPageViewModel : ViewModel() {
     val watchlist = _watchlist.asStateFlow()
     private val _animeList = MutableStateFlow(emptyList<AnimeCard>())
     val animeList = _animeList.asStateFlow()
+    private val _images = MutableStateFlow(emptyList<String>())
+    val images = _images.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -51,5 +53,7 @@ class WatchlistPageViewModel : ViewModel() {
         _animeList.value = _watchlist.value?.run {
             UserData.animeList.value.filter { series.contains(it.id) }
         } ?: emptyList()
+
+        _images.value = _animeList.value.map { it.image }
     }
 }

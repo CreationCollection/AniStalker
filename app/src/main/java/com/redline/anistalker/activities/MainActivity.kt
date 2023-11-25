@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -126,7 +127,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                        }
+                        },
+                        contentWindowInsets = WindowInsets(0)
                     ) { pads ->
                         Box(
                             modifier = Modifier

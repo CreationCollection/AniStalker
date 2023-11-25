@@ -321,7 +321,7 @@ private fun WatchlistCardPopulatedDetails(
                         .padding(horizontal = 10.dp)
                 ) {
                     Text(
-                        text = "${watchlist.series.toString()} Series",
+                        text = "${watchlist.series.size} Series",
                         fontSize = 12.sp,
                         color = Color.White
                     )

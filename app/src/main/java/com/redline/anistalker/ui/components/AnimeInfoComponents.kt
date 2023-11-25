@@ -53,6 +53,7 @@ import com.redline.anistalker.R
 import com.redline.anistalker.models.AnimeCard
 import com.redline.anistalker.models.AnimeDownload
 import com.redline.anistalker.models.AnimeEpisodeDetail
+import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.EpisodeDownload
 import com.redline.anistalker.models.EpisodeRange
@@ -791,10 +792,9 @@ fun AnimeDownloadCard(
 @Composable
 fun EpisodeDownloadContentView(
     details: AnimeEpisodeDetail,
-    onClick: ((quality: VideoQuality) -> Unit)? = null
+    onClick: ((track: AnimeTrack) -> Unit)? = null
 ) {
     val primary = MaterialTheme.colorScheme.primary
-    val labelBg = MaterialTheme.colorScheme.primaryContainer
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -805,79 +805,75 @@ fun EpisodeDownloadContentView(
     ) {
         CenteredBox(
             modifier = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(labelBg)
         ) {
+            val text =
+                if (details.isFiller) "FL "
+                else "EP "
+            val color =
+                if (details.isFiller) MaterialTheme.colorScheme.tertiary
+                else primary
             Text(
-                text = "EP" + details.episode.toString(),
-                color = primary,
+                text = text + details.episode.toString(),
+                color = color,
                 fontWeight = FontWeight.Bold,
             )
         }
+//        Divider(modifier = Modifier
+//            .height(30.dp)
+//            .width(2.dp))
         Column(
             modifier = Modifier.weight(1f)
         ) {
             Text(
                 text = details.title,
                 color = Color.White,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                maxLines = 2
             )
-            Spacer(modifier = Modifier.size(4.dp))
-            if (details.isFiller) {
-                CenteredBox(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.tertiaryContainer)
-                        .padding(horizontal = 15.dp)
-                        .height(20.dp)
-                ) {
-                    Text(
-                        text = "Filler",
-                        color = MaterialTheme.colorScheme.tertiary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
         }
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
                 .background(secondary_background)
-                .height(38.dp)
+                .height(34.dp)
                 .padding(4.dp)
         ) {
             CenteredBox(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(60.dp)
-                    .clickable { onClick?.let { it(VideoQuality.HD) } }
+                    .width(50.dp)
+                    .clickable { onClick?.let { it(AnimeTrack.SUB) } }
             ) {
                 Image(
-                    painter = awarePainterResource(R.drawable.hd),
+                    painter = awarePainterResource(R.drawable.sub),
                     contentDescription = null,
-                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary)
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
+                    modifier = Modifier
+                        .size(25.dp)
                 )
             }
-            Divider(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(1.dp),
-                color = MaterialTheme.colorScheme.outline
-            )
-            CenteredBox(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(60.dp)
-                    .clickable { onClick?.let { it(VideoQuality.UHD) } }
-            ) {
-                Image(
-                    painter = awarePainterResource(R.drawable.uhd),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary)
+            if (details.hasDub) {
+                Divider(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(1.dp),
+                    color = MaterialTheme.colorScheme.outline
                 )
+                CenteredBox(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(50.dp)
+                        .clickable { onClick?.let { it(AnimeTrack.DUB) } }
+                ) {
+                    Image(
+                        painter = awarePainterResource(R.drawable.dub),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
+                        modifier = Modifier
+                            .size(25.dp)
+                    )
+                }
             }
         }
     }

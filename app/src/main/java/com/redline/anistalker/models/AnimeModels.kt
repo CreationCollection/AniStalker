@@ -210,7 +210,8 @@ data class AnimeEpisodeDetail(
     val id: Int = 0,
     val episode: Int = 0,
     val title: String = "Episode Title",
-    val isFiller: Boolean = false
+    val isFiller: Boolean = false,
+    val hasDub: Boolean = true,
 )
 
 data class Watchlist (

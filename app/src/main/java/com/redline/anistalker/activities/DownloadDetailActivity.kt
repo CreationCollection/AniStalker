@@ -84,6 +84,7 @@ import com.redline.anistalker.utils.blurImage
 import com.redline.anistalker.utils.toDurationFormat
 import com.redline.anistalker.utils.toSizeFormat
 import com.redline.anistalker.viewModels.DownloadDetailViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -157,6 +158,8 @@ private fun DownloadDetailScreen(
                             context.blurImage(it).asImageBitmap()
                         }
                 }
+            } catch (err: CancellationException) {
+                break
             } catch (err: AniError) {
                 err.printStackTrace()
             } catch (err: IOException) {
@@ -199,7 +202,7 @@ private fun DownloadDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 60.dp)
-                    .padding(horizontal = 10.dp)
+                    .padding(horizontal = 10.dp, vertical = 10.dp)
                     .statusBarsPadding()
             ) {
                 Button(
@@ -298,7 +301,7 @@ private fun DownloadDetailScreen(
                 .height(120.dp)
         ) {
             Text(
-                text = "No Episodes Yet!",
+                text = "Downloaded Episodes will show here!",
                 color = Color.White.copy(alpha = .5f)
             )
         }

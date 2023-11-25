@@ -5,6 +5,7 @@ import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -29,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,16 +44,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -69,6 +75,7 @@ import com.redline.anistalker.ui.theme.AniStalkerTheme
 import com.redline.anistalker.ui.theme.md_theme_dark_background
 import com.redline.anistalker.ui.theme.md_theme_dark_outline
 import com.redline.anistalker.ui.theme.secondary_background
+import com.redline.anistalker.utils.blurImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -375,7 +382,9 @@ fun AsyncImage(
     contentDescription: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
     contentAlignment: Alignment = Alignment.Center,
+    blurRadius: Float = 0f,
 ) {
+    val context = LocalContext.current
     var bitmapPainter by remember {
         mutableStateOf<BitmapPainter?>(null)
     }
@@ -385,9 +394,13 @@ fun AsyncImage(
             do {
                 try {
                     val bitmap: Bitmap? = withContext(Dispatchers.IO) {
-                        BitmapFactory.decodeStream(Net.getStream(url))
+                        BitmapFactory.decodeStream(Net.getStream(url)).run {
+                            if (blurRadius > 0f) context.blurImage(this, blurRadius)
+                            else this
+                        }
                     }
                     bitmapPainter = bitmap?.let { BitmapPainter(it.asImageBitmap()) }
+                    break
                 }
                 catch (err: AniError) {
                     err.printStackTrace()
@@ -424,10 +437,62 @@ fun AsyncImage(
             if (bitmapPainter != null) Image(
                 painter = bitmapPainter!!,
                 contentDescription = contentDescription,
-                modifier = Modifier.matchParentSize(),
+                modifier = Modifier
+                    .matchParentSize()
+                    .blur(blurRadius.dp, BlurredEdgeTreatment.Rectangle),
                 contentScale = contentScale,
                 alignment = contentAlignment,
             )
+        }
+    }
+}
+
+@Composable
+fun ImagePopUp(
+    url: String?,
+    onHide: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = { onHide() },
+    ) {
+        var image by rememberSaveable { mutableStateOf<ImageBitmap?>(null) }
+        LaunchedEffect(url) {
+            url?.let { imageUrl ->
+                if (imageUrl.isNotBlank()) withContext(Dispatchers.IO) {
+                    do try {
+                        image = BitmapFactory.decodeStream(Net.getStream(imageUrl)).asImageBitmap()
+                        break
+                    }
+                    catch (err: AniError) {
+                        err.printStackTrace()
+                    }
+                    catch (err: Exception) {
+                        err.printStackTrace()
+                        break
+                    } while (image == null)
+                }
+            }
+        }
+
+        Crossfade(targetState = image, label = "") {
+            if (it != null) {
+                Image(
+                    painter = BitmapPainter(it),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillWidth,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .fillMaxWidth()
+                )
+            }
+            else {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(100.dp)
+                ) {
+                    CircularProgressIndicator(strokeWidth = 4.dp, modifier = Modifier.size(30.dp))
+                }
+            }
         }
     }
 }

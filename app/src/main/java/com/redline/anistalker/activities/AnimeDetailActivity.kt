@@ -106,7 +106,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class AnimeDetailActivity : ComponentActivity() {
-    @OptIn(ExperimentalMaterial3Api::class)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -166,12 +166,8 @@ class AnimeDetailActivity : ComponentActivity() {
                     EpisodeDownloadSheet(
                         show = showDownloadScreen,
                         episodeList = episodeList,
-                        episodeTrack = animeTrack,
-                        onAnimeTrackChange = {
-                             viewModel.setAnimeTrack(it)
-                        },
-                        onDownloadEpisode = {
-                            viewModel.downloadEpisodes(it)
+                        onDownloadEpisode = { anime, track ->
+                            viewModel.downloadEpisodes(anime, track)
                         }
                     ) {
                         showDownloadScreen = false

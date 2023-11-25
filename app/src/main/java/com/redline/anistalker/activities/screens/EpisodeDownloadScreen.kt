@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,9 +46,7 @@ import kotlinx.coroutines.launch
 fun EpisodeDownloadSheet(
     show: Boolean,
     episodeList: List<AnimeEpisodeDetail>?,
-    episodeTrack: AnimeTrack,
-    onAnimeTrackChange: (AnimeTrack) -> Unit,
-    onDownloadEpisode: (AnimeEpisodeDetail) -> Unit,
+    onDownloadEpisode: (AnimeEpisodeDetail, AnimeTrack) -> Unit,
     onHide: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -88,6 +87,9 @@ fun EpisodeDownloadSheet(
             }
 
             if (!episodeList.isNullOrEmpty()) {
+                val chipListState = rememberLazyListState()
+                val chipScope = rememberCoroutineScope()
+
                 val chipCount by rememberSaveable {
                     val count = kotlin.math.ceil(episodeList.size / (amount * 1.0)).toInt()
                     mutableIntStateOf(count)
@@ -96,20 +98,24 @@ fun EpisodeDownloadSheet(
                 var selectedChip by rememberSaveable {
                     mutableIntStateOf(0)
                 }
-                val startRange = selectedChip * amount
-                val endRange = (startRange + amount).coerceAtMost(episodeList.size - 1)
 
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    state = chipListState
                 ) {
                     items(chipCount) {
+                        val start = it * amount
+                        val end = (start + amount).coerceAtMost(episodeList.size)
                         FilterChip(
                             selected = selectedChip == it,
-                            onClick = { selectedChip = it },
+                            onClick = {
+                                selectedChip = it
+                                chipScope.launch { chipListState.animateScrollToItem(it) }
+                            },
                             label = {
                                 Text(
-                                    text = "EP ${startRange + 1}- ${endRange + 1}",
+                                    text = "EP ${start + 1}- $end",
                                 )
                             }
                         )
@@ -117,13 +123,16 @@ fun EpisodeDownloadSheet(
                 }
 
                 LazyColumn {
-                    val range = endRange - startRange + 1
+                    val startRange = selectedChip * amount
+                    val endRange = (startRange + amount).coerceAtMost(episodeList.size)
+                    val range = endRange - startRange
+
                     items(range) {
-                        val episode = episodeList[it]
+                        val episode = episodeList[it + startRange]
                         EpisodeDownloadContentView(
                             details = episode
-                        ) {
-                            onDownloadEpisode(episode)
+                        ) { track ->
+                            onDownloadEpisode(episode, track)
                         }
                     }
                 }
@@ -136,7 +145,7 @@ fun EpisodeDownloadSheet(
                         .height(80.dp)
                 ) {
                     Text(
-                        text = "No ${ episodeTrack.value } Episodes",
+                        text = "No episode available for this anime!",
                         color = Color.White.copy(alpha = .6f)
                     )
                 }
@@ -170,9 +179,7 @@ private fun P_Screen() {
                     AnimeEpisodeDetail(),
                     AnimeEpisodeDetail(),
                 ),
-                episodeTrack = AnimeTrack.DUB,
-                onAnimeTrackChange = { },
-                onDownloadEpisode = { }
+                onDownloadEpisode = { _, _ -> }
             ) {
             }
         }

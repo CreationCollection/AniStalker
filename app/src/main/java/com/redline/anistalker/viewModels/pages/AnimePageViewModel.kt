@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 
 class AnimePageViewModel(
     private val application: Application,
-    private val savedStateHandle: SavedStateHandle,
+    savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(application) {
     private val stateAnimeTrack = "STATE_ANIME_TRACK"
 
@@ -37,7 +37,6 @@ class AnimePageViewModel(
     private val _currentAnime = MutableStateFlow(false)
     val currentAnime = _currentAnime.asStateFlow()
 
-    private var allEpisodeList: List<AnimeEpisodeDetail>? = null
     private val _episodeList = MutableStateFlow<List<AnimeEpisodeDetail>?>(null)
     val episodeList = _episodeList.asStateFlow()
 
@@ -79,27 +78,9 @@ class AnimePageViewModel(
                 launch { _images.value = StalkMedia.Anime.getAnimeImageList(result.id) }
                 launch { updateWatchlist() }
                 launch {
-                    val episodeClip =
-                        if (animeTrack.value == AnimeTrack.SUB) result.episodes.sub
-                        else result.episodes.dub
-
-                    allEpisodeList = StalkMedia.Anime.getAnimeEpisodes(animeId)
-                    _episodeList.value = allEpisodeList?.filter { it.episode <= episodeClip }
+                    _episodeList.value = StalkMedia.Anime.getAnimeEpisodes(animeId)
                 }
                 _currentAnime.value = animeId == UserData.currentAnime.value?.id?.zoroId
-            }
-        }
-    }
-
-    fun setAnimeTrack(track: AnimeTrack) {
-        if (track != animeTrack.value) {
-            savedStateHandle[stateAnimeTrack] = track
-            anime.value?.run {
-                val episodeClip =
-                    if (animeTrack.value == AnimeTrack.SUB) episodes.sub
-                    else episodes.dub
-
-                _episodeList.value = allEpisodeList?.filter { it.episode <= episodeClip }
             }
         }
     }
@@ -108,13 +89,13 @@ class AnimePageViewModel(
         return UserData.removeAnime(watchId, currentAnimeId)
     }
 
-    fun downloadEpisodes(episode: AnimeEpisodeDetail) {
+    fun downloadEpisodes(episode: AnimeEpisodeDetail, track: AnimeTrack) {
         anime.value?.also {
             DownloadManager.Anime.download(
                 application.applicationContext,
                 it,
                 episode,
-                animeTrack.value
+                track
             )
         }
     }

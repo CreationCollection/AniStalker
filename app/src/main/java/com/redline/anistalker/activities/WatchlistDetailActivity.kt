@@ -82,6 +82,7 @@ import com.redline.anistalker.ui.theme.aniStalkerColorScheme
 import com.redline.anistalker.ui.theme.dark_background
 import com.redline.anistalker.utils.blurImage
 import com.redline.anistalker.viewModels.pages.WatchlistPageViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -163,11 +164,15 @@ private fun WatchlistDetailScreen(
                 index++
                 delay(imageInterval * 1000L)
             }
+            catch (err: CancellationException) {
+                break
+            }
             catch (err: AniError) {
                 err.printStackTrace()
             }
             catch (err: Exception) {
                 err.printStackTrace()
+                break
             }
         }
     }

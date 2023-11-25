@@ -76,6 +76,7 @@ import com.redline.anistalker.ui.theme.md_theme_dark_background
 import com.redline.anistalker.ui.theme.md_theme_dark_outline
 import com.redline.anistalker.ui.theme.secondary_background
 import com.redline.anistalker.utils.blurImage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -402,6 +403,9 @@ fun AsyncImage(
                     bitmapPainter = bitmap?.let { BitmapPainter(it.asImageBitmap()) }
                     break
                 }
+                catch (err: CancellationException) {
+                    break
+                }
                 catch (err: AniError) {
                     err.printStackTrace()
                 }
@@ -410,6 +414,9 @@ fun AsyncImage(
                     break
                 }
             } while (bitmapPainter != null)
+        }
+        else {
+            bitmapPainter = null
         }
     }
 

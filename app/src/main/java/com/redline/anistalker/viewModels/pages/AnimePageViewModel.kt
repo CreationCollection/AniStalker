@@ -27,8 +27,6 @@ class AnimePageViewModel(
 
     private var currentAnimeId = 0
     private var jobScope = CoroutineScope(Dispatchers.IO)
-    private var episodeJobScope = CoroutineScope(Dispatchers.IO)
-    private var loadingEpisode = false
 
     private val _anime = MutableStateFlow<Anime?>(null)
     val anime = _anime.asStateFlow()
@@ -49,22 +47,30 @@ class AnimePageViewModel(
         viewModelScope.launch {
             UserData.watchlist.collect { updateWatchlist() }
         }
-//        viewModelScope.launch {
-//            UserData.getCurrentWatchAnime().collect {
-//                _currentAnime.value = it.id.zoroId == currentAnimeId.value
-//            }
-//        }
+        viewModelScope.launch {
+            UserData.currentAnime.collect {
+                _currentAnime.value = it?.id?.zoroId == currentAnimeId
+            }
+        }
     }
 
     override fun onCleared() {
         jobScope.cancel()
-        episodeJobScope.cancel()
         super.onCleared()
+    }
+
+    fun cleanUp() {
+        jobScope.cancel()
+        _anime.value = null
+        _watchlist.value = null
+        _images.value = emptyList()
+        _currentAnime.value = false
     }
 
     fun initialize(animeId: Int) {
         if (currentAnimeId != animeId) {
-            jobScope.cancel()
+            cleanUp()
+
             jobScope = CoroutineScope(Dispatchers.IO)
             jobScope.launch {
                 currentAnimeId = animeId
@@ -80,6 +86,7 @@ class AnimePageViewModel(
                     allEpisodeList = StalkMedia.Anime.getAnimeEpisodes(animeId)
                     _episodeList.value = allEpisodeList?.filter { it.episode <= episodeClip }
                 }
+                _currentAnime.value = animeId == UserData.currentAnime.value?.id?.zoroId
             }
         }
     }

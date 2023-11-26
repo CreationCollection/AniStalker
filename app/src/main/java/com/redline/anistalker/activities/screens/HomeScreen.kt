@@ -52,6 +52,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -69,6 +70,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
@@ -111,6 +115,8 @@ import com.redline.anistalker.utils.toTitleCase
 import com.redline.anistalker.utils.wrap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -516,9 +522,25 @@ private fun SearchBarView(
     onQueryChanged: (String) -> Unit,
     onSearch: (String) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+    var isFocused by rememberSaveable {
+        mutableStateOf(true)
+    }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(focusRequester) {
+        if (isFocused) focusRequester.requestFocus()
+    }
+
     LaunchedEffect(query) {
         delay(500)
         onSearch(query)
+    }
+
+    DisposableEffect(scope) {
+        onDispose {
+            scope.cancel()
+        }
     }
 
     Row(
@@ -558,6 +580,7 @@ private fun SearchBarView(
                 )
             }
 
+            var job by remember { mutableStateOf<Job?>(null) }
             BasicTextField(
                 value = query,
                 onValueChange = onQueryChanged,
@@ -566,7 +589,12 @@ private fun SearchBarView(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 textStyle = TextStyle(color = Color.White),
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .onFocusChanged {
+                        job?.cancel()
+                        job = scope.launch { delay(500); isFocused = it.isFocused }
+                    },
             ) {
                 it()
             }

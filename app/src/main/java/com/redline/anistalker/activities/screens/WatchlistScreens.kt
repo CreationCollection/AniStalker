@@ -6,15 +6,18 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,9 +38,11 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -96,13 +101,15 @@ fun WatchlistOperationSheet(
             title = ""
         },
         modifier = Modifier
-            .imePadding()
     ) {
         if (showCreationScreen) {
             WatchlistCreationSheet(
                 title = title,
                 onTitleChanged = { title = it },
                 showBackPressButton = showBackPressButton,
+                onExpand = {
+                    scope.launch { sheetState.expand() }
+                },
                 onBackPress = {
                     onCreationScreenToggled(false)
                     scope.launch { sheetState.partialExpand() }
@@ -126,7 +133,6 @@ fun WatchlistOperationSheet(
                     anime = anime,
                     onCreateWatchlist = {
                         onCreationScreenToggled(true)
-                        scope.launch { sheetState.expand() }
                     }
                 ) { id ->
                     if (anime != null) UserData.addAnimeToWatchlist(id, anime.id)
@@ -243,11 +249,14 @@ fun WatchlistSelectionSheet(
     }
 }
 
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WatchlistCreationSheet(
     title: String,
     onTitleChanged: (String) -> Unit,
     showBackPressButton: Boolean = false,
+    onExpand: () -> Unit,
     onBackPress: () -> Unit,
     onCreated: (Watchlist) -> Unit,
 ) {
@@ -255,10 +264,18 @@ fun WatchlistCreationSheet(
         mutableIntStateOf(0)
     }
 
+    val textFieldInteractionSource = remember { MutableInteractionSource() }
+    val clicked by textFieldInteractionSource.collectIsPressedAsState()
+
+    LaunchedEffect(clicked) {
+        if (clicked) onExpand()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .focusable(true)
+            .fillMaxHeight()
     ) {
         Row {
             if (showBackPressButton) Box (
@@ -305,7 +322,9 @@ fun WatchlistCreationSheet(
                 onValueChange = {
                     if (it.length < 120) onTitleChanged(it)
                 },
-                modifier = Modifier.fillMaxWidth()
+                interactionSource = textFieldInteractionSource,
+                modifier = Modifier
+                    .fillMaxWidth()
             )
             TabRow(
                 selectedTabIndex = selectedTab,
@@ -418,7 +437,7 @@ private fun P_WatchlistCreationView() {
             color = aniStalkerColorScheme.background,
             contentColor = Color.White,
         ) {
-            WatchlistCreationSheet(title = "", onTitleChanged = { }, onBackPress = { }) { }
+            WatchlistCreationSheet(title = "", onTitleChanged = { }, onExpand = { }, onBackPress = { }) { }
         }
     }
 }

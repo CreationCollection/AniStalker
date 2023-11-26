@@ -524,7 +524,7 @@ private fun SearchBarView(
 ) {
     val scope = rememberCoroutineScope()
     var isFocused by rememberSaveable {
-        mutableStateOf(true)
+        mutableStateOf(false)
     }
     val focusRequester = remember { FocusRequester() }
 

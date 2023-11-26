@@ -105,7 +105,7 @@ import com.redline.anistalker.viewModels.pages.AnimePageViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class AnimeDetailActivity : ComponentActivity() {
+class AnimeDetailActivity : AniActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

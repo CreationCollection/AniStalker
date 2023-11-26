@@ -53,7 +53,7 @@ import com.redline.anistalker.viewModels.LibraryViewModel
 import com.redline.anistalker.viewModels.SearchViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AniActivity() {
     private val screenHome = "SCREEN_HOME"
     private val screenSearch = "SCREEN_SEARCH"
     private val screenLibrary = "SCREEN_LIBRARY"

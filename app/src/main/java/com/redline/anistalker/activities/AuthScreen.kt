@@ -72,7 +72,7 @@ import com.redline.anistalker.ui.theme.aniStalkerColorScheme
 import com.redline.anistalker.viewModels.AuthViewModel
 import kotlinx.coroutines.launch
 
-class AuthScreen : ComponentActivity() {
+class AuthScreen : AniActivity() {
     private var onIntentResult: ((ActivityResult) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {

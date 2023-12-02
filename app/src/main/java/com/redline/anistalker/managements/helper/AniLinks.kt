@@ -44,7 +44,7 @@ object AniLinks {
                 .replace(":files", files.toString())
 
         fun makeCategoryLink(category: AnimeCategory) =
-            this.category + category.value
+            this.category + category.value + "?page=:page"
 
         fun makeGenreLink(genre: String) =
             this.genre.replace(":genre", genre)

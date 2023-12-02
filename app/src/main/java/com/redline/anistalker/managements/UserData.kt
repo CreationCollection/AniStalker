@@ -134,8 +134,8 @@ object UserData {
 
     fun getCurrentUser(): UserInfo? = userInfo
 
-    fun getDownloadContent(episodeId: Int): EpisodeDownload? {
-        return downloadContent[episodeId]
+    fun getDownloadContent(id: Int): EpisodeDownload? {
+        return downloadContent[id]
     }
 
     fun setCurrentAnime(anime: Anime?) {
@@ -355,8 +355,10 @@ object UserData {
                             )
                         }
                         it.copy(
-                            content = if (downloadId !in it.content) it.content + downloadId else it.content,
-                            ongoingContent = it.ongoingContent - downloadId,
+                            content = if (downloadId !in it.content && downloadEp != null)
+                                it.content + downloadId else it.content,
+                            ongoingContent = if (downloadEp != null)
+                                it.ongoingContent - downloadId else it.ongoingContent,
                             duration = it.duration + duration,
                             size = it.size + size,
                             episodes = episode,

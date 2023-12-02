@@ -58,7 +58,7 @@ object DownloadManager {
             override fun onReceive(context: Context?, intent: Intent?) {
                 intent?.run {
                     val animeId = getIntExtra(DownloadTask.ANIME_ID, 0)
-                    val episodeId = getIntExtra(DownloadTask.EPISODE_ID, 0)
+                    val id = getIntExtra(DownloadTask.DOWNLOAD_ID, 0)
                     val status = DownloadStatus.valueOf(
                         getStringExtra(DownloadTask.STATUS)
                             ?: DownloadStatus.PROCESSING.name
@@ -66,10 +66,10 @@ object DownloadManager {
 
                     ongoingContent[animeId]?.apply {
                         value = value.map { item ->
-                            if (item.id != episodeId) item
+                            if (item.id != id) item
                             else updateOngoingContent(animeId, item, status)
                         }.let {
-                            if (status == DownloadStatus.WRITING) it.filterNot { item -> item.id == episodeId }
+                            if (status == DownloadStatus.COMPLETED) it.filterNot { item -> item.id == id }
                             else it
                         }
                     }
@@ -161,6 +161,7 @@ object DownloadManager {
 
             DownloadService.commandDownload(
                 context = context,
+                episodeDownload.id,
                 animeId = anime.id.zoroId,
                 episodeId = episodeDownload.episodeId,
                 fileName = episodeDownload.file,

@@ -46,6 +46,7 @@ data class DownloadTaskModel(
 }
 
 class DownloadTaskImpl(
+    override val downloadId: Int,
     override val fileName: String,
     override val animeId: Int,
     override val episodeId: Int,
@@ -57,6 +58,7 @@ class DownloadTaskImpl(
 ) : DownloadTask {
 
     constructor(
+        id: Int,
         fileName: String,
         animeId: Int,
         episodeId: Int,
@@ -66,7 +68,7 @@ class DownloadTaskImpl(
         status: DownloadStatus,
         links: List<DownloadTaskModel>,
         subtitle: String,
-    ) : this(fileName, animeId, episodeId, duration, track, quality, links, subtitle) {
+    ) : this(id, fileName, animeId, episodeId, duration, track, quality, links, subtitle) {
         _status = status
 
         links.forEach {
@@ -141,6 +143,7 @@ class DownloadTaskImpl(
 
     override fun toString(): String {
         return JSONObject().apply {
+            put(DownloadTask.DOWNLOAD_ID, downloadId)
             put(DownloadTask.ANIME_ID, animeId)
             put(DownloadTask.EPISODE_ID, episodeId)
             put(DownloadTask.FILENAME, fileName)
@@ -273,6 +276,7 @@ class DownloadTaskImpl(
 object DownloadMaster {
 
     suspend fun download(
+        downloadId: Int,
         animeId: Int,
         epId: Int,
         fileName: String,
@@ -299,6 +303,7 @@ object DownloadMaster {
         return video.let {
 
             val task = DownloadTaskImpl(
+                downloadId,
                 fileName,
                 animeId = animeId,
                 episodeId = epId,
@@ -337,6 +342,7 @@ object DownloadMaster {
             }
 
             list += DownloadTaskImpl(
+                id = json.getInt(DownloadTask.DOWNLOAD_ID),
                 fileName = json.getString(DownloadTask.FILENAME),
                 animeId = json.getInt(DownloadTask.ANIME_ID),
                 episodeId = json.getInt(DownloadTask.EPISODE_ID),

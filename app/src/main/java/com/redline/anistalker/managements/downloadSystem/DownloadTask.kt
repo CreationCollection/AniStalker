@@ -12,6 +12,7 @@ interface DownloadTask {
         const val DOWNLOAD_SPEED = "DOWNLOAD_SPEED"
         const val STATUS = "TASK_STATUS"
         const val EPISODE_ID = "TASK_EPISODE_ID"
+        const val DOWNLOAD_ID = "TASK_ID"
         const val SIZE = "TASK_SIZE"
         const val DURATION = "TASK_DURATION"
         const val FILENAME = "TASK_FILENAME"
@@ -19,6 +20,7 @@ interface DownloadTask {
         const val QUALITY = "TASK_QUALITY"
     }
 
+    val downloadId: Int
     val fileName: String
     val animeId: Int
     val episodeId: Int

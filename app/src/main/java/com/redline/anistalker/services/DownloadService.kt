@@ -48,6 +48,7 @@ class DownloadService : Service() {
 
         fun commandDownload(
             context: Context,
+            downloadId: Int,
             animeId: Int,
             episodeId: Int,
             fileName: String,
@@ -56,6 +57,7 @@ class DownloadService : Service() {
         ) = commandStartService(context) {
             action = DownloadCommands.ADD.name
 
+            putExtra(DownloadTask.DOWNLOAD_ID, downloadId)
             putExtra(DownloadTask.ANIME_ID, animeId)
             putExtra(DownloadTask.EPISODE_ID, episodeId)
             putExtra(DownloadTask.FILENAME, fileName)
@@ -164,8 +166,12 @@ class DownloadService : Service() {
                     val fileName = getStringExtra(DownloadTask.FILENAME) ?: "animeEpisode-$id"
                     val track = AnimeTrack.valueOf(getStringExtra(DownloadTask.TRACK) ?: "DUB")
                     val quality = VideoQuality.valueOf(getStringExtra(DownloadTask.QUALITY) ?: "UHD")
+                    val downloadId = getIntExtra(
+                        DownloadTask.DOWNLOAD_ID,
+                        if (track == AnimeTrack.DUB) -id else id
+                    )
 
-                    addDownload(animeId, id, fileName, track, quality)
+                    addDownload(downloadId, animeId, id, fileName, track, quality)
                 }
 
                 DownloadCommands.PAUSE -> serviceScope.launch {
@@ -196,7 +202,7 @@ class DownloadService : Service() {
                     task?.run {
                         cancel()
                         downloadTasks.remove(this)
-                        addDownload(animeId, episodeId, fileName, track, quality)
+                        addDownload(downloadId, animeId, episodeId, fileName, track, quality)
                         broadCastDownloadTask(this)
                     }
                 }
@@ -224,9 +230,17 @@ class DownloadService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun addDownload(animeId: Int, epId: Int, fileName: String, track: AnimeTrack, quality: VideoQuality) {
+    private fun addDownload(
+        downloadId: Int,
+        animeId: Int,
+        epId: Int,
+        fileName: String,
+        track: AnimeTrack,
+        quality: VideoQuality
+    ) {
         downloadProcessingFlow.execute {
             downloadTasks += DownloadMaster.download(
+                downloadId,
                 animeId,
                 epId,
                 fileName = fileName,
@@ -365,6 +379,7 @@ class DownloadService : Service() {
         Intent(ACTION_STATE_CHANGE).also {
             it.setPackage(packageName)
 
+            it.putExtra(DownloadTask.DOWNLOAD_ID, task.downloadId)
             it.putExtra(DownloadTask.ANIME_ID, task.animeId)
             it.putExtra(DownloadTask.EPISODE_ID, task.episodeId)
             it.putExtra(DownloadTask.STATUS, task.status().name)

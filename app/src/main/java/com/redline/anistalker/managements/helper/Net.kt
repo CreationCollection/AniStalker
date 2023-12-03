@@ -104,10 +104,14 @@ object Net {
     ): Result {
         try {
             val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
+            return if (response.isSuccessful) {
                 headers?.let { it(response.headers) }
-                return handle(response.body)
+                handle(response.body)
+            } else if (response.code == 404) {
+                throw AniError(AniErrorCode.NOT_FOUND, response.body?.string() ?: AniErrorCode.NOT_FOUND.message)
             } else throw IOException(response.code.toString())
+        } catch (e: AniError) {
+            throw e
         } catch (e: SocketTimeoutException) {
             val errorCode = AniErrorCode.SLOW_NETWORK_ERROR
             throw AniError(errorCode)

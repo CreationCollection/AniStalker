@@ -902,40 +902,60 @@ fun EpisodeDownloadContentView(
 fun EpisodeDownloadView(
     details: EpisodeDownload,
     statusInfo: OngoingEpisodeDownload? = null,
-    onPause: (() -> Unit)? = null,
+    isFailed: Boolean = false,
+    onAction: (() -> Unit)? = null,
     onClick: ((episodeId: Int) -> Unit)? = null
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val labelBg = MaterialTheme.colorScheme.primaryContainer
     val color = MaterialTheme.colorScheme.primary
     val dim = Color.White.copy(alpha = .4f)
 
     val progress =
-        if (LocalInspectionMode.current) .4f
-        else if (statusInfo == null || statusInfo.duration <= 0f) 0f
-        else (statusInfo.downloadedDuration / statusInfo.duration)
+        if (statusInfo == null) 0f
+        else when (statusInfo.status) {
+            DownloadStatus.WRITING -> {
+                if (statusInfo.size <= 0) 0f
+                else statusInfo.downloadedSize / statusInfo.size.toFloat()
+            }
+            else -> {
+                if (statusInfo.duration <= 0) 0f
+                else statusInfo.downloadedDuration / statusInfo.duration
+            }
+        }
+    val progressValue = String.format("%.2f%%", progress * 100)
 
-    val progressValue = progress.toString().format("%.1f")
+    val status =
+        when (statusInfo?.status) {
+            DownloadStatus.RUNNING -> statusInfo.downloadSpeed.toSizeFormat() + "/s"
+            DownloadStatus.PAUSED -> "PAUSED"
+            DownloadStatus.WAITING -> "Waiting"
+            DownloadStatus.WRITING -> "Writing"
+            DownloadStatus.NETWORK_WAITING -> "Waiting For Network"
+            DownloadStatus.PROCESSING -> "Fetching Link"
+            else -> details.size.toSizeFormat()
+        }
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp)
+            .padding(vertical = 5.dp)
             .clickable { onClick?.let { it(details.id) } }
     ) {
         CenteredBox(
             modifier = Modifier
-                .size(60.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(labelBg)
-                .clickable { onPause?.let { it() } }
+                .background(secondary_background)
+                .clickable { onAction?.let { it() } }
+                .height(50.dp)
+                .widthIn(min = 50.dp)
         ) {
             Text(
                 text = "EP" + details.num.toString(),
-                color = primary,
+                color = color,
                 fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                maxLines = 1,
             )
         }
         Column(
@@ -950,7 +970,13 @@ fun EpisodeDownloadView(
 
             Spacer(modifier = Modifier.size(5.dp))
 
-            Row(
+            if (isFailed) Text(
+                text = "Failed to fetch download link",
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            else Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -961,28 +987,41 @@ fun EpisodeDownloadView(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
+                Divider(modifier = Modifier.size(4.dp), color = dim)
+                Text(
+                    text = details.track.value,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+
                 Spacer(modifier = Modifier.weight(1f))
 
                 Text(
-                    text = statusInfo?.let { it.downloadSpeed.toSizeFormat() + "/s" }
-                        ?: details.size.toSizeFormat(),
+                    text = status,
                     color = color,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
-                Divider(modifier = Modifier.size(4.dp), color = dim)
-                Text(
-                    text = if (statusInfo != null) progressValue else details.duration.toDurationFormat(),
-                    color = color,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
+                if (statusInfo == null || statusInfo.status != DownloadStatus.PROCESSING) {
+                    Divider(modifier = Modifier.size(4.dp), color = dim)
+                    Text(
+                        text = if (statusInfo != null) progressValue else details.duration.toDurationFormat(),
+                        color = color,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.size(5.dp))
 
             if (statusInfo != null) {
-                if (statusInfo.status == DownloadStatus.WAITING) {
+                if (
+                    statusInfo.status == DownloadStatus.WAITING ||
+                    statusInfo.status == DownloadStatus.PROCESSING ||
+                    statusInfo.status == DownloadStatus.NETWORK_WAITING
+                ) {
                     LinearProgressIndicator(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         trackColor = Color.White.copy(alpha = .2f),

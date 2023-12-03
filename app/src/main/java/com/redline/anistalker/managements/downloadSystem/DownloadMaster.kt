@@ -81,7 +81,9 @@ class DownloadTaskImpl(
         }
     }
 
+    private val concurrentDownloads = 8
     private val updateFlow = ExecutionFlow(1, CoroutineScope(Dispatchers.IO))
+    private val speedMonitor = SpeedMonitor()
 
     private var _status = DownloadStatus.PROCESSING
     private var _size: Long = 0L
@@ -109,6 +111,8 @@ class DownloadTaskImpl(
     }
 
     override suspend fun start() {
+        if (_cancelSignal != null) return
+
         statusChange(DownloadStatus.WAITING)
         _cancelSignal = CancellationSignal()
         run()
@@ -176,10 +180,13 @@ class DownloadTaskImpl(
     }
 
     private suspend fun run() {
-        _downloadFlow = ExecutionFlow(32, scope)
+        _downloadFlow = ExecutionFlow(concurrentDownloads, scope)
         val cancelSignal = _cancelSignal ?: CancellationSignal()
 
-        statusChange(DownloadStatus.RUNNING)
+        cancelSignal.setOnCancelListener {
+            _downloadFlow?.reset()
+            speedMonitor.reset()
+        }
         links.forEach {
             if (!it.isDownloaded) _downloadFlow?.execute {
                 try {
@@ -193,7 +200,7 @@ class DownloadTaskImpl(
             } ?: throw AniError(AniErrorCode.INVALID_VALUE)
         }
 
-        monitorDownloading()
+        monitorDownloading(cancelSignal)
         finalizeDownload(cancelSignal)
     }
 
@@ -213,26 +220,33 @@ class DownloadTaskImpl(
                         _downloadedDuration.addAndGet(value)
                     }
                 }
+                if (cancelSignal.isCanceled) break
+
                 if (length <= 0L) _downloadedDuration.addAndGet(link.length.toDouble())
                 link.isDownloaded = true
             } catch (ex: AniError) {
                 ex.printStackTrace()
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+                break
             }
         } while (!cancelSignal.isCanceled && !link.isDownloaded)
     }
 
-    private suspend fun monitorDownloading() {
+    private suspend fun monitorDownloading(cancelSignal: CancellationSignal) {
         var lastDownloadedBytes = 0L
         val tick = 200L
-        while (_downloadFlow?.isEmpty() != true) {
+        while (_downloadFlow?.isEmpty() != true && !cancelSignal.isCanceled) {
             delay(tick)
 
             val bytes = _downloadedSize.get() - lastDownloadedBytes
             val speed = bytes / (tick / 1000.0)
-            _downloadSpeed.set(speed.toLong())
             lastDownloadedBytes = _downloadedSize.get()
 
-            statusChange(DownloadStatus.RUNNING)
+            speedMonitor.consumeBytes(speed.toLong())
+            _downloadSpeed.set(speedMonitor.get())
+
+            if (!cancelSignal.isCanceled) statusChange(DownloadStatus.RUNNING)
         }
     }
 

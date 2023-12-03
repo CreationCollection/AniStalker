@@ -36,16 +36,6 @@ object DownloadManager {
             if (initialized) return
 
             UserData.animeDownload.value.forEach { anime ->
-//                val list = mutableListOf<OngoingEpisodeDownload>()
-//                anime.ongoingContent.forEach { episode ->
-//                    UserData.getDownloadContent(episode)?.run {
-//                        val v = OngoingEpisodeDownload(
-//                            id = id,
-//                            num = num,
-//                        )
-//                        list.add(v)
-//                    }
-//                }
                 ongoingContent[anime.animeId.zoroId] = MutableStateFlow(emptyList())
                 failedContent[anime.animeId.zoroId] = MutableStateFlow(emptyList())
             }
@@ -53,7 +43,7 @@ object DownloadManager {
 
         private val ongoingContent: MutableMap<Int, MutableStateFlow<List<OngoingEpisodeDownload>>> =
             mutableMapOf()
-        private val failedContent: MutableMap<Int, MutableStateFlow<List<OngoingEpisodeDownload>>> =
+        private val failedContent: MutableMap<Int, MutableStateFlow<List<Int>>> =
             mutableMapOf()
         val animeDownloads = UserData.animeDownload
 
@@ -70,7 +60,7 @@ object DownloadManager {
                     ongoingContent[animeId]?.apply {
                         value = value.ownDownload(id).map { item ->
                             if (item.id != id) item
-                            else updateOngoingContent(animeId, item, status)
+                            else updateOngoingContent(item, status)
                         }.let {
                             when (status) {
                                 DownloadStatus.COMPLETED,
@@ -83,12 +73,10 @@ object DownloadManager {
                                     it.filterNot { item -> item.id == id }
                                 }
                                 DownloadStatus.FAILED -> {
-                                    it.filterNot { item ->
-                                        if (item.id == id) {
-                                            failedContent[animeId]?.apply { value += item }
-                                            true
-                                        } else false
+                                    failedContent.getOrPut(animeId) { MutableStateFlow(emptyList()) }.apply {
+                                        if (value.none { item -> item == id }) value += id
                                     }
+                                    it.filterNot { item -> item.id == id}
                                 }
                                 else -> it
                             }
@@ -112,7 +100,6 @@ object DownloadManager {
                 }
 
             private fun Intent.updateOngoingContent(
-                animeId: Int,
                 item: OngoingEpisodeDownload,
                 status: DownloadStatus
             ): OngoingEpisodeDownload {
@@ -164,6 +151,10 @@ object DownloadManager {
 
         fun getOngoingDownloads(animeDID: Int): StateFlow<List<OngoingEpisodeDownload>>? {
             return ongoingContent[animeDID]
+        }
+
+        fun getFailedDownloads(animeId: Int): StateFlow<List<Int>>? {
+            return failedContent[animeId]
         }
 
         fun download(

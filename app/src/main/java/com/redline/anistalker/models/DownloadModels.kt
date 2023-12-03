@@ -9,7 +9,8 @@ enum class DownloadStatus(val index: Int) {
     WAITING(3),
     NETWORK_WAITING(4),
     WRITING(5),
-    COMPLETED(10)
+    COMPLETED(10),
+    FAILED(-10)
 }
 
 data class AnimeShort(

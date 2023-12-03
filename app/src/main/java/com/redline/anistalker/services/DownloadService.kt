@@ -270,16 +270,17 @@ class DownloadService : Service() {
         quality: VideoQuality
     ) {
         downloadProcessingFlow.execute {
-            downloadTasks += DownloadMaster.download(
+            DownloadMaster.download(
                 downloadId,
                 animeId,
                 epId,
                 fileName = fileName,
                 track = track,
                 quality = quality,
-            ).also {
+            )?.also {
+                downloadTasks += it
                 processDownload(it)
-            }
+            } ?: broadcastFailure(animeId, downloadId)
         }
     }
 
@@ -445,6 +446,18 @@ class DownloadService : Service() {
                     it.putExtra(DownloadTask.DOWNLOADED_SIZE, task.downloadedSize())
                 }
             }
+
+            sendBroadcast(it)
+        }
+    }
+
+    private fun broadcastFailure(animeId: Int, id: Int) {
+        Intent(ACTION_STATE_CHANGE).also {
+            it.setPackage(packageName)
+
+            it.putExtra(DownloadTask.DOWNLOAD_ID, id)
+            it.putExtra(DownloadTask.ANIME_ID, animeId)
+            it.putExtra(DownloadTask.STATUS, DownloadStatus.FAILED.name)
 
             sendBroadcast(it)
         }

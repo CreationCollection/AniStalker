@@ -36,21 +36,24 @@ object DownloadManager {
             if (initialized) return
 
             UserData.animeDownload.value.forEach { anime ->
-                val list = mutableListOf<OngoingEpisodeDownload>()
-                anime.ongoingContent.forEach { episode ->
-                    UserData.getDownloadContent(episode)?.run {
-                        val v = OngoingEpisodeDownload(
-                            id = id,
-                            num = num,
-                        )
-                        list.add(v)
-                    }
-                }
-                ongoingContent[anime.animeId.zoroId] = MutableStateFlow(list)
+//                val list = mutableListOf<OngoingEpisodeDownload>()
+//                anime.ongoingContent.forEach { episode ->
+//                    UserData.getDownloadContent(episode)?.run {
+//                        val v = OngoingEpisodeDownload(
+//                            id = id,
+//                            num = num,
+//                        )
+//                        list.add(v)
+//                    }
+//                }
+                ongoingContent[anime.animeId.zoroId] = MutableStateFlow(emptyList())
+                failedContent[anime.animeId.zoroId] = MutableStateFlow(emptyList())
             }
         }
 
         private val ongoingContent: MutableMap<Int, MutableStateFlow<List<OngoingEpisodeDownload>>> =
+            mutableMapOf()
+        private val failedContent: MutableMap<Int, MutableStateFlow<List<OngoingEpisodeDownload>>> =
             mutableMapOf()
         val animeDownloads = UserData.animeDownload
 
@@ -65,16 +68,48 @@ object DownloadManager {
                     )
 
                     ongoingContent[animeId]?.apply {
-                        value = value.map { item ->
+                        value = value.ownDownload(id).map { item ->
                             if (item.id != id) item
                             else updateOngoingContent(animeId, item, status)
                         }.let {
-                            if (status == DownloadStatus.COMPLETED) it.filterNot { item -> item.id == id }
-                            else it
+                            when (status) {
+                                DownloadStatus.COMPLETED,
+                                DownloadStatus.CANCELLED -> {
+                                    val duration = getFloatExtra(DownloadTask.DURATION, 0f)
+                                    val size = getLongExtra(DownloadTask.SIZE, 0)
+
+                                    UserData.completeDownload(animeId, id, duration, size)
+
+                                    it.filterNot { item -> item.id == id }
+                                }
+                                DownloadStatus.FAILED -> {
+                                    it.filterNot { item ->
+                                        if (item.id == id) {
+                                            failedContent[animeId]?.apply { value += item }
+                                            true
+                                        } else false
+                                    }
+                                }
+                                else -> it
+                            }
                         }
                     }
                 }
             }
+
+            private fun List<OngoingEpisodeDownload>.ownDownload(id: Int): List<OngoingEpisodeDownload> =
+                when (none { it.id == id }) {
+                    true -> UserData.getDownloadContent(id)?.let { download ->
+                        this + OngoingEpisodeDownload(
+                            id = download.id,
+                            num = download.num,
+                            size = download.size,
+                            duration = download.duration
+                        )
+                    } ?: this
+
+                    false -> this
+                }
 
             private fun Intent.updateOngoingContent(
                 animeId: Int,
@@ -106,13 +141,6 @@ object DownloadManager {
                             size = size,
                             downloadedSize = downloadedSize,
                         )
-                    }
-
-                    DownloadStatus.COMPLETED -> {
-                        val duration = getFloatExtra(DownloadTask.DURATION, 0f)
-                        val size = getLongExtra(DownloadTask.SIZE, 0)
-
-                        UserData.completeDownload(animeId, item.id, duration, size)
                     }
 
                     else -> {

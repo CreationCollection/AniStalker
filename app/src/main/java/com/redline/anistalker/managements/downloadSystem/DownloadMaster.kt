@@ -296,25 +296,31 @@ object DownloadMaster {
         fileName: String,
         track: AnimeTrack,
         quality: VideoQuality
-    ): DownloadTask {
+    ): DownloadTask? {
         var video: VideoFile? = null
         var subtitle: Subtitle? = null
         var offset = 1L
-        do {
-            try {
-                val v = StalkMedia.Anime.getEpisodeLinks(epId, track, true)
-                video =
-                    if (quality == VideoQuality.HD) v.hd
-                    else v.uhd
-                subtitle = if (v.subtitle.isNotEmpty()) v.subtitle[0] else null
-            } catch (ex: IOException) {
-                ex.printStackTrace()
-                delay(1000 * offset)
-                offset = (offset + 1).coerceAtMost(10)
+        do try {
+            val v = StalkMedia.Anime.getEpisodeLinks(epId, track, true)
+            video =
+                if (quality == VideoQuality.HD) v.hd
+                else v.uhd
+            subtitle = if (v.subtitle.isNotEmpty()) v.subtitle[0] else null
+            break
+        } catch (err: AniError) {
+            if (err.errorCode == AniErrorCode.NOT_FOUND) {
+                return null
             }
-        } while (video == null)
 
-        return video.let {
+            err.printStackTrace()
+            delay(1000 * offset)
+            offset = (offset + 1).coerceAtMost(10)
+        } catch (ex: IOException) {
+            ex.printStackTrace()
+            return null
+        } while (true)
+
+        return video?.let {
 
             val task = DownloadTaskImpl(
                 downloadId,
@@ -337,7 +343,7 @@ object DownloadMaster {
             )
 
             task
-        } ?: throw AniError(AniErrorCode.NOT_FOUND)
+        }
     }
 
     fun restoreDownloads(): List<DownloadTask> {

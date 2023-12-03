@@ -68,19 +68,19 @@ class DownloadService : Service() {
         fun commandPause(context: Context, episodeId: Int) = commandStartService(context) {
             action = DownloadCommands.PAUSE.name
 
-            putExtra(DownloadTask.EPISODE_ID, episodeId)
+            putExtra(DownloadTask.DOWNLOAD_ID, episodeId)
         }
 
         fun commandResume(context: Context, episodeId: Int) = commandStartService(context) {
             action = DownloadCommands.RESUME.name
 
-            putExtra(DownloadTask.EPISODE_ID, episodeId)
+            putExtra(DownloadTask.DOWNLOAD_ID, episodeId)
         }
 
         fun commandCancel(context: Context, episodeId: Int) = commandStartService(context) {
             action = DownloadCommands.CANCEL.name
 
-            putExtra(DownloadTask.EPISODE_ID, episodeId)
+            putExtra(DownloadTask.DOWNLOAD_ID, episodeId)
         }
 
         fun commandPauseAll(context: Context) = commandStartService(context) {
@@ -123,18 +123,25 @@ class DownloadService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onCreate() {
-        nfManager = NotificationManagerCompat.from(applicationContext)
-
-        checkHandle = Handler(Looper.getMainLooper())
-        checkHandle.postDelayed({
+    private fun idleCheck(handler: Handler) {
+        handler.postDelayed({
             if (
                 downloadProcessingFlow.isEmpty() &&
                 downloadingFlow.isEmpty()
             ) {
                 stopSelf()
             }
+            else {
+                idleCheck(handler)
+            }
         }, IDLE_TIMEOUT)
+    }
+
+    override fun onCreate() {
+        nfManager = NotificationManagerCompat.from(applicationContext)
+
+        checkHandle = Handler(Looper.getMainLooper())
+        idleCheck(checkHandle)
 
         serviceScope = CoroutineScope(Dispatchers.Default)
 
@@ -144,7 +151,14 @@ class DownloadService : Service() {
         FileMaster.initialize(this)
 
         downloadTasks += DownloadMaster.restoreDownloads().onEach { task ->
-            if (task.status() == DownloadStatus.RUNNING) {
+            downloadTasks += task
+            broadCastDownloadTask(task)
+            if (
+                task.status() == DownloadStatus.RUNNING ||
+                task.status() == DownloadStatus.WRITING ||
+                task.status() == DownloadStatus.WAITING ||
+                task.status() == DownloadStatus.NETWORK_WAITING
+            ) {
                 processDownload(task)
             }
         }
@@ -156,7 +170,7 @@ class DownloadService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.run {
 
-            val id = getIntExtra(DownloadTask.EPISODE_ID, 0)
+            val id = getIntExtra(DownloadTask.DOWNLOAD_ID, 0)
             if (id == 0) return@run
             val task = getDownloadTask(id)
 
@@ -166,26 +180,36 @@ class DownloadService : Service() {
                     val fileName = getStringExtra(DownloadTask.FILENAME) ?: "animeEpisode-$id"
                     val track = AnimeTrack.valueOf(getStringExtra(DownloadTask.TRACK) ?: "DUB")
                     val quality = VideoQuality.valueOf(getStringExtra(DownloadTask.QUALITY) ?: "UHD")
-                    val downloadId = getIntExtra(
-                        DownloadTask.DOWNLOAD_ID,
-                        if (track == AnimeTrack.DUB) -id else id
-                    )
+                    val episodeId = getIntExtra(DownloadTask.EPISODE_ID, 0)
 
-                    addDownload(downloadId, animeId, id, fileName, track, quality)
+                    addDownload(id, animeId, episodeId, fileName, track, quality)
                 }
 
                 DownloadCommands.PAUSE -> serviceScope.launch {
-                    task?.stop()
+                    task?.run {
+                        if (
+                            status() != DownloadStatus.PAUSED &&
+                            status() != DownloadStatus.COMPLETED &&
+                            status() != DownloadStatus.CANCELLED
+                        ) {
+                            stop()
+                        }
+                    }
                 }
 
                 DownloadCommands.RESUME -> serviceScope.launch {
-                    task?.start()
+                    task?.run {
+                        if (task.status() == DownloadStatus.PAUSED || task.status() == DownloadStatus.WAITING)
+                            processDownload(this, task.status() == DownloadStatus.WAITING)
+                    }
                 }
 
                 DownloadCommands.TOGGLE -> serviceScope.launch {
                     when (task?.status()) {
-                        DownloadStatus.RUNNING -> { task.stop() }
-                        DownloadStatus.PAUSED -> { task.start() }
+                        DownloadStatus.RUNNING,
+                        DownloadStatus.WAITING,
+                        DownloadStatus.NETWORK_WAITING -> { task.stop() }
+                        DownloadStatus.PAUSED -> { processDownload(task) }
                         else -> { }
                     }
                 }
@@ -209,7 +233,13 @@ class DownloadService : Service() {
 
                 DownloadCommands.PAUSE_ALL -> serviceScope.launch {
                     downloadTasks.forEach {
-                        it.stop()
+                        if (
+                            it.status() != DownloadStatus.PAUSED &&
+                            it.status() != DownloadStatus.COMPLETED &&
+                            it.status() != DownloadStatus.CANCELLED
+                        ) {
+                            it.stop()
+                        }
                     }
                 }
                 DownloadCommands.CANCEL_ALL -> serviceScope.launch {
@@ -219,7 +249,8 @@ class DownloadService : Service() {
                 }
                 DownloadCommands.RESUME_ALL -> serviceScope.launch {
                     downloadTasks.forEach {
-                        it.start()
+                        if (it.status() == DownloadStatus.PAUSED || it.status() == DownloadStatus.WAITING)
+                            processDownload(it, it.status() == DownloadStatus.WAITING)
                     }
                 }
                 DownloadCommands.NONE -> {}
@@ -252,19 +283,19 @@ class DownloadService : Service() {
         }
     }
 
-    private fun processDownload(task: DownloadTask) {
+    private fun processDownload(task: DownloadTask, forced: Boolean = false) {
         task.onStatusChange { broadCastDownloadTask(this) }
         task.activate()
 
-        downloadingFlow.execute {
+        downloadingFlow.execute(forced) {
             val runStateIntent = Intent(this@DownloadService, DownloadService::class.java).apply {
                 action = DownloadCommands.TOGGLE.name
-                putExtra(DownloadTask.EPISODE_ID, task.episodeId)
+                putExtra(DownloadTask.DOWNLOAD_ID, task.downloadId)
             }
 
             val cancelIntent = Intent(this@DownloadService, DownloadService::class.java).apply {
                 action = DownloadCommands.CANCEL.name
-                putExtra(DownloadTask.EPISODE_ID, task.episodeId)
+                putExtra(DownloadTask.DOWNLOAD_ID, task.downloadId)
             }
 
             val runStateAction = PendingIntent.getService(
@@ -281,7 +312,7 @@ class DownloadService : Service() {
                 PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val nf = registerNotification(task.episodeId).apply {
+            val nf = registerNotification(task.downloadId).apply {
                 setOngoing(true)
                 setSmallIcon(android.R.drawable.stat_sys_download)
                 setContentTitle(task.fileName)
@@ -289,7 +320,7 @@ class DownloadService : Service() {
                 setProgress(0, 0, true)
             }
 
-            updateNotification(task.episodeId, nf)
+            updateNotification(task.downloadId, nf)
 
             task.onStatusChange {
                 val progress =
@@ -304,6 +335,11 @@ class DownloadService : Service() {
                 val progressString = String.format("%.2f%% \u2022 ${downloadSpeed().toSizeFormat()}", progress)
 
                 nf.clearActions()
+
+                if (status() == DownloadStatus.PAUSED) nf.setSmallIcon(android.R.drawable.ic_media_pause)
+                else if (status() == DownloadStatus.COMPLETED) nf.setSmallIcon(android.R.drawable.stat_sys_download_done)
+                else nf.setSmallIcon(android.R.drawable.stat_sys_download)
+
                 when (it) {
                     DownloadStatus.PROCESSING -> {}
                     DownloadStatus.RUNNING -> {
@@ -328,13 +364,15 @@ class DownloadService : Service() {
                     DownloadStatus.PAUSED -> {
                         nf.apply {
                             setProgress(100, progress.roundToInt(), false)
-                            setContentText(progressString)
+                            setContentText("PAUSED (${ String.format("%.2f%%", progress) })")
                             setOngoing(false)
-                            setAutoCancel(true)
 
                             addAction(R.drawable.play, "Resume", runStateAction)
                             addAction(R.drawable.close, "Cancel", cancelAction)
                         }
+
+                        updateNotification(downloadId, nf)
+                        unRegisterNotification(downloadId)
                     }
 
                     DownloadStatus.WAITING -> {
@@ -343,7 +381,7 @@ class DownloadService : Service() {
                             setContentText("Waiting...")
                             setOngoing(true)
 
-                            addAction(R.drawable.pause, "Pause", runStateAction)
+                            addAction(android.R.drawable.ic_media_pause, "Pause", runStateAction)
                             addAction(R.drawable.close, "Cancel", cancelAction)
                         }
                     }
@@ -360,11 +398,11 @@ class DownloadService : Service() {
                     }
 
                     else -> {
-                        unRegisterNotification(episodeId)
-                        nfManager.cancel(episodeId)
+                        unRegisterNotification(downloadId)
+                        nfManager.cancel(downloadId)
                     }
                 }
-                updateNotification(episodeId, nf)
+                updateNotification(downloadId, nf)
             }
 
             task.start()
@@ -372,7 +410,7 @@ class DownloadService : Service() {
     }
 
     private fun getDownloadTask(id: Int): DownloadTask? {
-        return downloadTasks.find { it.episodeId == id }
+        return downloadTasks.find { it.downloadId == id }
     }
 
     private fun broadCastDownloadTask(task: DownloadTask) {
@@ -442,9 +480,9 @@ class DownloadService : Service() {
                 startForeground(next.key, next.value.build())
             } else {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopForeground(STOP_FOREGROUND_DETACH)
                 } else {
-                    stopForeground(true)
+                    stopForeground(false)
                 }
             }
 

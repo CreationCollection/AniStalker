@@ -22,6 +22,8 @@ class DownloadDetailViewModel : ViewModel() {
 
     private val _ongoingDownloads = MutableStateFlow<List<OngoingEpisodeDownload>>(emptyList())
     val ongoingDownloads = _ongoingDownloads.asStateFlow()
+    private val _failedDownloads = MutableStateFlow<List<Int>>(emptyList())
+    val failedDownloads = _failedDownloads.asStateFlow()
 
     fun initializeFor(animeId: Int) {
         if (currentAnimeId != animeId) {
@@ -39,6 +41,11 @@ class DownloadDetailViewModel : ViewModel() {
                 launch {
                     DownloadManager.Anime.getOngoingDownloads(animeId)?.collect {
                         _ongoingDownloads.value = it
+                    }
+                }
+                launch {
+                    DownloadManager.Anime.getFailedDownloads(animeId)?.collect {
+                        _failedDownloads.value = it
                     }
                 }
             }

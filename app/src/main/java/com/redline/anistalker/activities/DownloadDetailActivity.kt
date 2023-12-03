@@ -1,13 +1,11 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3Api::class)
 
 package com.redline.anistalker.activities
 
 import android.graphics.BitmapFactory
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,16 +21,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -54,13 +53,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.Wallpapers
@@ -68,7 +65,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
-import com.redline.anistalker.R
 import com.redline.anistalker.managements.DownloadManager
 import com.redline.anistalker.managements.helper.Net
 import com.redline.anistalker.models.AniError
@@ -109,11 +105,13 @@ class DownloadDetailActivity : AniActivity() {
 
                     val animeDownload by viewModel.animeDownload.collectAsState()
                     val ongoingContent by viewModel.ongoingDownloads.collectAsState()
+                    val failedContent by viewModel.failedDownloads.collectAsState()
 
                     DownloadDetailScreen(
                         animeDownload = animeDownload,
                         content = { viewModel.getContent(it) },
                         ongoingContent = ongoingContent,
+                        failedContent = failedContent,
                         onPause = { DownloadManager.Anime.pause(this, it) },
                         onResume = { DownloadManager.Anime.resume(this, it) },
                         onCancel = { DownloadManager.Anime.cancel(this, it) },
@@ -134,6 +132,7 @@ private fun DownloadDetailScreen(
     animeDownload: AnimeDownload?,
     content: (Int) -> EpisodeDownload?,
     ongoingContent: List<OngoingEpisodeDownload>,
+    failedContent: List<Int>,
     onPause: (Int) -> Unit,
     onResume: (Int) -> Unit,
     onCancel: (Int) -> Unit,
@@ -205,23 +204,19 @@ private fun DownloadDetailScreen(
                     .padding(horizontal = 10.dp, vertical = 10.dp)
                     .statusBarsPadding()
             ) {
-                Button(
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.buttonColors(
+                IconButton(
+                    colors = IconButtonDefaults.iconButtonColors(
                         containerColor = Color.Transparent,
                         contentColor = MaterialTheme.colorScheme.primary
                     ),
                     onClick = { onBackPress() },
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).size(40.dp)
                 ) {
-                    val contentColor = LocalContentColor.current
-                    Image(
-                        painter = painterResource(id = R.drawable.arrow_back),
+                    Icon(
+                        imageVector = Icons.Rounded.ArrowBack,
                         contentDescription = null,
                         modifier = Modifier
                             .size(25.dp),
-                        colorFilter = ColorFilter.tint(contentColor)
                     )
                 }
 
@@ -239,7 +234,7 @@ private fun DownloadDetailScreen(
                 contentPadding = PaddingValues(20.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (ongoingContent.isNotEmpty() && animeDownload.ongoingContent.isNotEmpty()) {
+                if (ongoingContent.isNotEmpty()) {
                     item {
                         Box(
                             contentAlignment = Alignment.Center,
@@ -252,15 +247,17 @@ private fun DownloadDetailScreen(
                         }
                     }
 
-                    items(animeDownload.ongoingContent.size) { content ->
-                        val episode = content(animeDownload.ongoingContent[content])
-                        val download = ongoingContent[content]
+                    items(
+                        items = ongoingContent
+                    ) { download ->
+                        val episode = content(download.id)
 
                         if (episode != null) EpisodeDownloadView(
                             details = episode,
                             statusInfo = download,
-                            onPause = {
-                                onPause(episode.id)
+                            onAction = {
+                                if (download.status == DownloadStatus.RUNNING) onPause(episode.id)
+                                else onResume(episode.id)
                             }
                         ) {
                             selectedEpisode = episode
@@ -269,7 +266,40 @@ private fun DownloadDetailScreen(
                     }
                 }
 
-                item {
+                if (failedContent.isNotEmpty()) {
+                    item {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.height(40.dp)
+                        ) {
+                            Text(
+                                text = "Failed Downloads",
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+
+                    items(
+                        items = failedContent
+                    ) {id ->
+                        val episode = content(id)
+                        if (episode != null) EpisodeDownloadView(
+                            details = episode,
+                            isFailed = true,
+                            onAction = {
+                                DownloadManager.Anime.retryDownload(context, id)
+                            }
+                        ) {
+                            selectedEpisode = episode
+                            ongoingEpisode = ongoingContent.find { it.id == episode.id }
+                        }
+                    }
+                }
+
+                if (
+                    (ongoingContent.isNotEmpty() || failedContent.isNotEmpty()) &&
+                    animeDownload.content.isNotEmpty()
+                ) item {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.height(40.dp)
@@ -281,12 +311,12 @@ private fun DownloadDetailScreen(
                     }
                 }
 
-                items(animeDownload.content.size) { content ->
-                    val episode = content(animeDownload.content[content])
+                items(animeDownload.content.size) { item ->
+                    val episode = content(animeDownload.content[item])
                     if (episode != null) EpisodeDownloadView(
                         details = episode,
-                        onPause = {
-                            onPause(episode.id)
+                        onAction = {
+
                         }
                     ) {
                         selectedEpisode = episode
@@ -485,7 +515,9 @@ private fun DownloadEpisodeDetailSheet(
 
                             TextButton(
                                 onClick = {
-                                    if (ongoingContent == null) onDelete(content) else onCancel(content)
+                                    if (ongoingContent == null) onDelete(content) else onCancel(
+                                        content
+                                    )
                                 },
                                 shape = RoundedCornerShape(6.dp)
                             ) {
@@ -497,7 +529,7 @@ private fun DownloadEpisodeDetailSheet(
                     }
                 }
                 Divider(modifier = Modifier.fillMaxWidth())
-                
+
                 OutlinedButton(
                     onClick = { onOpenFolder(content) },
                     shape = shape,
@@ -506,7 +538,7 @@ private fun DownloadEpisodeDetailSheet(
                         text = "Open Containing Folder"
                     )
                 }
-                
+
                 OutlinedButton(onClick = { onRestart(content) }) {
                     Text(
                         text = "Re-Download"
@@ -546,6 +578,7 @@ private fun P_Screen() {
                     OngoingEpisodeDownload(),
                     OngoingEpisodeDownload(),
                 ),
+                emptyList(),
                 onPause = { },
                 onResume = { },
                 onCancel = { },

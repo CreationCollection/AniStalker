@@ -57,6 +57,11 @@ object DownloadManager {
                             ?: DownloadStatus.PROCESSING.name
                     )
 
+                    failedContent[animeId]?.run {
+                        if (value.contains(id) && status != DownloadStatus.FAILED)
+                            value -= id
+                    }
+
                     ongoingContent[animeId]?.apply {
                         value = value.ownDownload(id).map { item ->
                             if (item.id != id) item
@@ -187,6 +192,23 @@ object DownloadManager {
                 track = track,
                 quality = VideoQuality.UHD,
             )
+        }
+
+        fun retryDownload(context: Context, downloadId: Int) {
+            UserData.getDownloadContent(downloadId)?.let { download ->
+                failedContent[download.animeId]?.apply {
+                    value -= downloadId
+                }
+                DownloadService.commandDownload(
+                    context = context,
+                    downloadId = downloadId,
+                    animeId = download.animeId,
+                    episodeId = download.episodeId,
+                    fileName = download.file,
+                    track = download.track,
+                    quality = VideoQuality.UHD
+                )
+            }
         }
 
         fun cancel(context: Context, epId: Int) {

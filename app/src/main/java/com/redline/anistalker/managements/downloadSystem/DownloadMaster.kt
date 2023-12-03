@@ -244,7 +244,7 @@ class DownloadTaskImpl(
             val bytes = _downloadedSize.get() - lastDownloadedBytes
             lastDownloadedBytes = _downloadedSize.get()
 
-            speedMonitor.consumeBytes(bytes / (tick / 1000))
+            speedMonitor.consumeBytes((bytes / (tick / 1000.0)).toLong())
             _downloadSpeed.set(speedMonitor.get())
 
             if (!cancelSignal.isCanceled) statusChange(DownloadStatus.RUNNING)

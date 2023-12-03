@@ -20,6 +20,7 @@ import com.redline.anistalker.utils.utilize
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import okhttp3.internal.closeQuietly
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -220,6 +221,7 @@ class DownloadTaskImpl(
                         _downloadedDuration.addAndGet(value)
                     }
                 }
+                stream.closeQuietly()
                 if (cancelSignal.isCanceled) break
 
                 if (length <= 0L) _downloadedDuration.addAndGet(link.length.toDouble())
@@ -234,20 +236,20 @@ class DownloadTaskImpl(
     }
 
     private suspend fun monitorDownloading(cancelSignal: CancellationSignal) {
-        var lastDownloadedBytes = 0L
+        var lastDownloadedBytes = _downloadedSize.get()
         val tick = 200L
         while (_downloadFlow?.isEmpty() != true && !cancelSignal.isCanceled) {
             delay(tick)
 
             val bytes = _downloadedSize.get() - lastDownloadedBytes
-            val speed = bytes / (tick / 1000.0)
             lastDownloadedBytes = _downloadedSize.get()
 
-            speedMonitor.consumeBytes(speed.toLong())
+            speedMonitor.consumeBytes(bytes / (tick / 1000))
             _downloadSpeed.set(speedMonitor.get())
 
             if (!cancelSignal.isCanceled) statusChange(DownloadStatus.RUNNING)
         }
+        speedMonitor.reset()
     }
 
     private suspend fun finalizeDownload(cancelSignal: CancellationSignal) {

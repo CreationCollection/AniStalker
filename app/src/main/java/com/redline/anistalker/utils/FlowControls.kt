@@ -16,9 +16,12 @@ class ExecutionFlow(
     private val currentCount = AtomicInteger(0)
     private var completionJob = Job()
 
-    fun execute(callback: suspend CoroutineScope.() -> Unit) {
-        queue.add(callback)
-        operateTasks()
+    fun execute(forced: Boolean = false, callback: suspend CoroutineScope.() -> Unit) {
+        if (forced) runTask(callback)
+        else {
+            queue.add(callback)
+            operateTasks()
+        }
     }
 
     fun isEmpty(): Boolean = queue.size == 0 && currentCount.get() <= 0
@@ -28,19 +31,27 @@ class ExecutionFlow(
         completionJob = Job()
     }
 
+    fun reset() {
+        queue.clear()
+        currentCount.set(0)
+    }
+
     private fun operateTasks() {
-        if (currentCount.get() < concurrentCount) queue.poll()?.let {
-            currentCount.incrementAndGet()
+        if (currentCount.get() < concurrentCount)
+            queue.poll()?.let { runTask(it, true) }
+    }
 
-            scope.launch {
-                try { it() } catch (err: Exception) { err.printStackTrace() }
-            }.invokeOnCompletion {
-                currentCount.decrementAndGet()
-                operateTasks()
+    private fun runTask(task: suspend CoroutineScope.() -> Unit, forward: Boolean = false) {
+        currentCount.incrementAndGet()
 
-                if (isEmpty()) {
-                    completionJob.complete()
-                }
+        scope.launch {
+            try { task() } catch (err: Exception) { err.printStackTrace() }
+        }.invokeOnCompletion {
+            currentCount.decrementAndGet()
+            if (forward) operateTasks()
+
+            if (isEmpty()) {
+                completionJob.complete()
             }
         }
     }

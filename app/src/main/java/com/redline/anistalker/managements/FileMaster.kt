@@ -164,7 +164,7 @@ object FileMaster {
     fun write(downloadTask: DownloadTask) {
         val file = File(
             baseLocation,
-            downloads.combineAsPath(downloadSources, downloadTask.episodeId.toString())
+            downloads.combineAsPath(downloadSources, downloadTask.downloadId.toString())
         )
         val data = downloadTask.toString()
         write(file, data)

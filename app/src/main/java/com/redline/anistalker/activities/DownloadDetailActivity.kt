@@ -22,10 +22,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -43,9 +46,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,17 +63,18 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.Wallpapers
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import com.redline.anistalker.R
 import com.redline.anistalker.managements.DownloadManager
 import com.redline.anistalker.managements.helper.Net
 import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.AnimeDownload
+import com.redline.anistalker.models.AnimeTrack
 import com.redline.anistalker.models.DownloadStatus
 import com.redline.anistalker.models.EpisodeDownload
 import com.redline.anistalker.models.OngoingEpisodeDownload
@@ -85,6 +91,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import kotlin.math.abs
 
 class DownloadDetailActivity : AniActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,7 +122,6 @@ class DownloadDetailActivity : AniActivity() {
                         onPause = { DownloadManager.Anime.pause(this, it) },
                         onResume = { DownloadManager.Anime.resume(this, it) },
                         onCancel = { DownloadManager.Anime.cancel(this, it) },
-                        onDelete = { },
                         onRestart = { },
                         onOpenFolder = { },
                     ) {
@@ -136,11 +142,14 @@ private fun DownloadDetailScreen(
     onPause: (Int) -> Unit,
     onResume: (Int) -> Unit,
     onCancel: (Int) -> Unit,
-    onDelete: (Int) -> Unit,
     onRestart: (Int) -> Unit,
     onOpenFolder: (Int) -> Unit,
     onBackPress: () -> Unit,
 ) {
+    var contentId by rememberSaveable {
+        mutableIntStateOf(0)
+    }
+
     val tobBarColor = aniStalkerColorScheme.background.copy(alpha = .9f)
 
     var bitmapPainter by remember {
@@ -168,8 +177,17 @@ private fun DownloadDetailScreen(
         } while (bitmapPainter == null)
     }
 
-    var selectedEpisode: EpisodeDownload? by remember { mutableStateOf(null) }
-    var ongoingEpisode: OngoingEpisodeDownload? = null
+    val sortedOngoingContent by remember(ongoingContent) {
+        mutableStateOf(ongoingContent.sortedByDescending { it.num })
+    }
+    val sortedContent by remember(animeDownload?.content) {
+        val list = animeDownload?.content?.run {
+            this.map { abs(it) }
+                .toSet()
+                .sortedByDescending { content(it)?.num }
+        } ?: emptyList()
+        mutableStateOf(list)
+    }
 
     Column(
         modifier = Modifier
@@ -210,7 +228,9 @@ private fun DownloadDetailScreen(
                         contentColor = MaterialTheme.colorScheme.primary
                     ),
                     onClick = { onBackPress() },
-                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).size(40.dp)
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .size(40.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.ArrowBack,
@@ -229,7 +249,10 @@ private fun DownloadDetailScreen(
             }
         }
 
-        animeDownload?.let {
+        if (
+            animeDownload != null &&
+            (ongoingContent.isNotEmpty() || animeDownload.content.isNotEmpty() || failedContent.isNotEmpty())
+        ) {
             LazyColumn(
                 contentPadding = PaddingValues(20.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -248,20 +271,21 @@ private fun DownloadDetailScreen(
                     }
 
                     items(
-                        items = ongoingContent
+                        items = sortedOngoingContent
                     ) { download ->
                         val episode = content(download.id)
 
                         if (episode != null) EpisodeDownloadView(
                             details = episode,
                             statusInfo = download,
+                            hasSub = episode.track == AnimeTrack.SUB,
+                            hasDub = episode.track == AnimeTrack.DUB,
                             onAction = {
                                 if (download.status == DownloadStatus.RUNNING) onPause(episode.id)
                                 else onResume(episode.id)
                             }
                         ) {
-                            selectedEpisode = episode
-                            ongoingEpisode = download
+                            contentId = episode.episodeId
                         }
                     }
                 }
@@ -281,17 +305,18 @@ private fun DownloadDetailScreen(
 
                     items(
                         items = failedContent
-                    ) {id ->
+                    ) { id ->
                         val episode = content(id)
                         if (episode != null) EpisodeDownloadView(
                             details = episode,
                             isFailed = true,
+                            hasSub = episode.track == AnimeTrack.SUB,
+                            hasDub = episode.track == AnimeTrack.DUB,
                             onAction = {
                                 DownloadManager.Anime.retryDownload(context, id)
                             }
                         ) {
-                            selectedEpisode = episode
-                            ongoingEpisode = ongoingContent.find { it.id == episode.id }
+                            DownloadManager.Anime.retryDownload(context, id)
                         }
                     }
                 }
@@ -311,78 +336,85 @@ private fun DownloadDetailScreen(
                     }
                 }
 
-                items(animeDownload.content.size) { item ->
-                    val episode = content(animeDownload.content[item])
+                items(sortedContent.size) { item ->
+                    val id = abs(sortedContent[item])
+                    val subEpisode = content(id)
+                    val dubEpisode = content(-id)
+
+                    val episode = subEpisode ?: dubEpisode
+
                     if (episode != null) EpisodeDownloadView(
                         details = episode,
+                        hasSub = subEpisode != null,
+                        hasDub = dubEpisode != null,
                         onAction = {
 
                         }
                     ) {
-                        selectedEpisode = episode
-                        ongoingEpisode = ongoingContent.find { it.id == episode.id }
+                        contentId = episode.episodeId
                     }
                 }
             }
-        } ?: Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-        ) {
-            Text(
-                text = "Downloaded Episodes will show here!",
-                color = Color.White.copy(alpha = .5f)
-            )
+        } else {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+            ) {
+                Text(
+                    text = "Downloaded Episodes will show here!",
+                    color = Color.White.copy(alpha = .5f)
+                )
+            }
         }
     }
 
+    val contents by remember(contentId, animeDownload) {
+        val sub = if (contentId != 0) content(contentId) else null
+        val dub = if (contentId != 0) content(-contentId) else null
+        mutableStateOf(Pair(sub, dub))
+    }
+    val ongoingContents by remember(contentId, ongoingContent, animeDownload) {
+        val sub = if (contentId != 0) ongoingContent.find { it.id == contentId } else null
+        val dub = if (contentId != 0) ongoingContent.find { it.id == -contentId } else null
+        mutableStateOf(Pair(sub, dub))
+    }
     DownloadEpisodeDetailSheet(
-        content = selectedEpisode,
-        ongoingContent = ongoingEpisode,
-        onPause = { onPause(it.id) },
-        onResume = { onResume(it.id) },
-        onCancel = { onCancel(it.id) },
-        onDelete = { onDelete(it.id) },
-        onOpenFolder = { onOpenFolder(it.id) },
-        onRestart = { onRestart(it.id) }
+        contentSub = contents.first,
+        contentDub = contents.second,
+        ongoingSub = ongoingContents.first,
+        ongoingDub = ongoingContents.second,
+        onPause = { onPause(it) },
+        onResume = { onResume(it) },
+        onCancel = { onCancel(it) },
+        onOpenFolder = { onOpenFolder(it) },
+        onRestart = { onRestart(it) }
     ) {
-        selectedEpisode = null
-        ongoingEpisode = null
+        contentId = 0
     }
 }
 
 @Composable
 private fun DownloadEpisodeDetailSheet(
-    content: EpisodeDownload?,
-    ongoingContent: OngoingEpisodeDownload?,
-    onPause: (EpisodeDownload) -> Unit,
-    onResume: (EpisodeDownload) -> Unit,
-    onCancel: (EpisodeDownload) -> Unit,
-    onDelete: (EpisodeDownload) -> Unit,
-    onOpenFolder: (EpisodeDownload) -> Unit,
-    onRestart: (EpisodeDownload) -> Unit,
+    contentSub: EpisodeDownload? = null,
+    contentDub: EpisodeDownload? = null,
+    ongoingSub: OngoingEpisodeDownload? = null,
+    ongoingDub: OngoingEpisodeDownload? = null,
+    onPause: (Int) -> Unit,
+    onResume: (Int) -> Unit,
+    onCancel: (Int) -> Unit,
+    onOpenFolder: (Int) -> Unit,
+    onRestart: (Int) -> Unit,
     onHide: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
 
     val shape = RoundedCornerShape(6.dp)
     val dividerShape = RoundedCornerShape(4.dp)
 
-    val progress =
-        remember(content, ongoingContent) {
-            ongoingContent?.let {
-                if (it.status == DownloadStatus.WRITING) {
-                    if (it.size <= 0) 0f
-                    else it.downloadedSize / it.size.toFloat()
-                } else {
-                    if (it.duration <= 0f) 0f
-                    else it.downloadedDuration / it.duration
-                }
-            } ?: 0f
-        }
-
+    val content = contentSub ?: contentDub
 
     val dismiss = {
         scope.launch { sheetState.hide() }.invokeOnCompletion { onHide() }; Unit
@@ -391,17 +423,12 @@ private fun DownloadEpisodeDetailSheet(
     if (content != null) ModalBottomSheet(
         sheetState = sheetState,
         shape = RectangleShape,
-        onDismissRequest = dismiss
+        onDismissRequest = dismiss,
+        containerColor = aniStalkerColorScheme.background,
+        dragHandle = { },
     ) {
-        val statusString =
-            remember(content, ongoingContent) {
-                ongoingContent?.let {
-                    String.format("%.2f%%", progress)
-                } ?: content.size.toSizeFormat()
-            }
-
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxWidth()
         ) {
             Box(
                 modifier = Modifier
@@ -420,7 +447,8 @@ private fun DownloadEpisodeDetailSheet(
                     .padding(20.dp)
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = "EPISODE ${content.num}",
@@ -441,152 +469,216 @@ private fun DownloadEpisodeDetailSheet(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(shape)
-                            .background(secondary_background)
-                            .height(50.dp)
-                    ) {
-                        ongoingContent?.let {
-                            LinearProgressIndicator(
-                                progress = progress,
-                                color = MaterialTheme.colorScheme.tertiaryContainer,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
+                    TrackProgressBar(
+                        content = contentSub,
+                        ongoingContent = ongoingSub,
+                        track = AnimeTrack.SUB,
+                        onPause = { if (contentSub != null) onPause(contentSub.id) },
+                        onResume = { if (contentSub != null)  onResume(contentSub.id) },
+                        onCancel = { if (contentSub != null) onCancel(contentSub.id) }
+                    )
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .padding(5.dp)
-                            )
-                            Text(
-                                text = content.track.value,
-                                fontWeight = FontWeight.Bold,
-                            )
-
-                            Divider(
-                                modifier = Modifier
-                                    .clip(dividerShape)
-                                    .size(4.dp)
-                            )
-
-                            Text(
-                                text = statusString,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-
-                            if (ongoingContent == null) {
-                                Divider(
-                                    modifier = Modifier
-                                        .clip(dividerShape)
-                                        .size(4.dp)
-                                )
-
-                                Text(
-                                    text = content.duration.toDurationFormat(),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            ongoingContent?.let {
-                                val shouldPause = it.status == DownloadStatus.PAUSED
-                                TextButton(
-                                    onClick = {
-                                        if (shouldPause) onPause(content) else onResume(content)
-                                    },
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Text(
-                                        text = if (shouldPause) "Pause" else "Resume"
-                                    )
-                                }
-                            }
-
-                            TextButton(
-                                onClick = {
-                                    if (ongoingContent == null) onDelete(content) else onCancel(
-                                        content
-                                    )
-                                },
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Text(
-                                    text = if (ongoingContent == null) "Delete" else "Cancel"
-                                )
-                            }
-                        }
-                    }
+                    TrackProgressBar(
+                        content = contentDub,
+                        ongoingContent = ongoingDub,
+                        track = AnimeTrack.DUB,
+                        onPause = { if (contentDub != null) onPause(contentDub.id) },
+                        onResume = { if (contentDub != null) onResume(contentDub.id) },
+                        onCancel = { if (contentDub != null) onCancel(contentDub.id) }
+                    )
                 }
                 Divider(modifier = Modifier.fillMaxWidth())
 
-                OutlinedButton(
-                    onClick = { onOpenFolder(content) },
-                    shape = shape,
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Text(
-                        text = "Open Containing Folder"
-                    )
-                }
+                    OutlinedButton(
+                        onClick = { onOpenFolder(content.id) },
+                        shape = shape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Open Containing Folder"
+                        )
+                    }
 
-                OutlinedButton(onClick = { onRestart(content) }) {
-                    Text(
-                        text = "Re-Download"
-                    )
-                }
-
-                OutlinedButton(onClick = { onDelete(content) }) {
-                    Text(
-                        text = "Delete"
-                    )
+                    OutlinedButton(
+                        onClick = { onRestart(content.id) },
+                        shape = shape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Re-Download"
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@Preview(wallpaper = Wallpapers.YELLOW_DOMINATED_EXAMPLE)
 @Composable
-private fun P_Screen() {
-    AniStalkerTheme(dynamicColor = true) {
-        Surface(
-            color = aniStalkerColorScheme.background,
-            contentColor = Color.White
-        ) {
-            DownloadDetailScreen(
-                animeDownload = AnimeDownload(
-                    content = listOf(
-                        0, 1, 2, 3, 4, 5
-                    ),
-                    ongoingContent = listOf(0, 1, 2, 3, 4, 5)
-                ),
-                content = { EpisodeDownload() },
-                ongoingContent = listOf(
-                    OngoingEpisodeDownload(),
-                    OngoingEpisodeDownload(),
-                    OngoingEpisodeDownload(),
-                    OngoingEpisodeDownload(),
-                    OngoingEpisodeDownload(),
-                ),
-                emptyList(),
-                onPause = { },
-                onResume = { },
-                onCancel = { },
-                onDelete = { },
-                onRestart = { },
-                { }
-            ) {
+private fun TrackProgressBar(
+    content: EpisodeDownload?,
+    ongoingContent: OngoingEpisodeDownload?,
+    track: AnimeTrack,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val shape = RoundedCornerShape(6.dp)
+    val dividerShape = CircleShape
+    val dividerColor = Color.White.copy(.5f)
 
+    val progress = ongoingContent?.let {
+        if (it.status == DownloadStatus.WRITING) {
+            if (it.size <= 0) 0f
+            else it.downloadedSize / it.size.toFloat()
+        } else {
+            if (it.duration <= 0f) 0f
+            else it.downloadedDuration / it.duration
+        }
+    } ?: 0f
+
+    val statusString =
+        ongoingContent?.let {
+            String.format("%.2f%%", progress * 100)
+        } ?: content?.size?.toSizeFormat()
+
+    Box(
+        modifier = Modifier
+            .clip(shape)
+            .background(secondary_background.copy(if (content == null) .25f else 1f))
+            .height(50.dp)
+    ) {
+        ongoingContent?.let {
+            LinearProgressIndicator(
+                progress = progress,
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                modifier = Modifier.fillMaxSize(),
+                trackColor = Color.Transparent,
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp)
+        ) {
+            when {
+                ongoingContent != null && ongoingContent.status != DownloadStatus.PAUSED ->
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .padding(8.dp)
+                    )
+
+                ongoingContent != null ->
+                    Icon(
+                        painter = painterResource(R.drawable.round_pause),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .padding(5.dp)
+                    )
+
+                content == null ->
+                    Icon(
+                        imageVector = Icons.Outlined.Add,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .padding(5.dp)
+                    )
+
+                else ->
+                    IconButton(
+                        onClick = { },
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Transparent
+                        ),
+                        modifier = Modifier
+                            .size(30.dp)
+                    ){
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.padding(5.dp)
+                        )
+                    }
+            }
+
+            Text(
+                text = track.value,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+            )
+
+            if (statusString != null) {
+                Divider(
+                    color = dividerColor,
+                    modifier = Modifier
+                        .clip(dividerShape)
+                        .size(4.dp)
+                )
+                Text(
+                    text = statusString,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 12.sp,
+                )
+            }
+
+            if (ongoingContent == null && content != null) {
+                Divider(
+                    color = dividerColor,
+                    modifier = Modifier
+                        .clip(dividerShape)
+                        .size(4.dp)
+                )
+
+                Text(
+                    text = content.duration.toDurationFormat(),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 12.sp,
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            ongoingContent?.let {
+                val shouldPause = it.status != DownloadStatus.PAUSED
+                TextButton(
+                    onClick = {
+                        if (shouldPause) onPause() else onResume()
+                    },
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = if (shouldPause) "Pause" else "Resume"
+                    )
+                }
+            }
+
+            TextButton(
+                onClick = {
+                    if (content != null) onCancel()
+                    else { }
+                },
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = when {
+                        content == null -> "Download"
+                        ongoingContent == null -> "Delete"
+                        else -> "Cancel"
+                    }
+                )
             }
         }
     }

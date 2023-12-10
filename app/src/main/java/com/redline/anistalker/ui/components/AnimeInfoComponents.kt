@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
@@ -903,9 +904,12 @@ fun EpisodeDownloadView(
     details: EpisodeDownload,
     statusInfo: OngoingEpisodeDownload? = null,
     isFailed: Boolean = false,
+    hasSub: Boolean = false,
+    hasDub: Boolean = false,
     onAction: (() -> Unit)? = null,
     onClick: ((episodeId: Int) -> Unit)? = null
 ) {
+    val dShape = CircleShape
     val color = MaterialTheme.colorScheme.primary
     val dim = Color.White.copy(alpha = .4f)
 
@@ -931,7 +935,7 @@ fun EpisodeDownloadView(
             DownloadStatus.WRITING -> "Writing"
             DownloadStatus.NETWORK_WAITING -> "Waiting For Network"
             DownloadStatus.PROCESSING -> "Fetching Link"
-            else -> details.size.toSizeFormat()
+            else -> null
         }
 
     Row(
@@ -987,24 +991,45 @@ fun EpisodeDownloadView(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
-                Divider(modifier = Modifier.size(4.dp), color = dim)
-                Text(
-                    text = details.track.value,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
+                if (hasSub) {
+                    Divider(modifier = Modifier.clip(dShape).size(4.dp), color = dim)
+                    Text(
+                        text = AnimeTrack.SUB.value,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+                if (hasDub) {
+                    Divider(modifier = Modifier.clip(dShape).size(4.dp), color = dim)
+                    Text(
+                        text = AnimeTrack.DUB.value,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                Text(
-                    text = status,
-                    color = color,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
-                if (statusInfo == null || statusInfo.status != DownloadStatus.PROCESSING) {
-                    Divider(modifier = Modifier.size(4.dp), color = dim)
+                if (!hasSub && !hasDub) {
+                    Text(
+                        text = "Download Episode Again",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+                else if (statusInfo == null || statusInfo.status != DownloadStatus.PROCESSING) {
+                    if (status != null) {
+                        Text(
+                            text = status,
+                            color = color,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Divider(modifier = Modifier.clip(dShape).size(4.dp), color = dim)
+                    }
                     Text(
                         text = if (statusInfo != null) progressValue else details.duration.toDurationFormat(),
                         color = color,

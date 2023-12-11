@@ -1,6 +1,8 @@
 package com.redline.anistalker.services
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -143,6 +145,27 @@ class DownloadService : Service() {
         checkHandle = Handler(Looper.getMainLooper())
         idleCheck(checkHandle)
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                downloadChannelId,
+                "Download Notification Channel",
+                NotificationManager.IMPORTANCE_LOW
+            )
+
+            nfManager.createNotificationChannel(channel)
+
+            val nf = NotificationCompat.Builder(this, downloadChannelId)
+            nf.setSmallIcon(R.drawable.logo)
+            nf.setContentTitle("Checking Downloads.")
+            nf.setOngoing(true)
+
+            startForeground(1, nf.build())
+
+            checkHandle.postDelayed({
+                if (downloadingFlow.isEmpty() && downloadProcessingFlow.isEmpty()) stopSelf()
+            }, 2000)
+        }
+
         serviceScope = CoroutineScope(Dispatchers.Default)
 
         downloadProcessingFlow = ExecutionFlow(PROCESSING_LIMIT, serviceScope)
@@ -162,6 +185,7 @@ class DownloadService : Service() {
                 processDownload(task)
             }
         }
+
     }
 
     override fun onDestroy() {

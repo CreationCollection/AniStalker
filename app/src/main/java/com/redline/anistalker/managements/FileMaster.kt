@@ -47,9 +47,9 @@ object FileMaster {
 
     fun initialize(context: Context) {
         val moviesFolder =
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+            Environment.getExternalStorageDirectory()
 
-        storageLocation = File(moviesFolder, "AniStalker")
+        storageLocation = File(moviesFolder, "Stockify")
         baseLocation = /*context.filesDir*/ File(storageLocation, "internal")
 
         Log.d(

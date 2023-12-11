@@ -812,6 +812,7 @@ fun AnimeDownloadCard(
 @Composable
 fun EpisodeDownloadContentView(
     details: AnimeEpisodeDetail,
+    hasDub: Boolean = false,
     onClick: ((track: AnimeTrack) -> Unit)? = null
 ) {
     val primary = MaterialTheme.colorScheme.primary
@@ -873,27 +874,25 @@ fun EpisodeDownloadContentView(
                         .size(25.dp)
                 )
             }
-            if (details.hasDub) {
-                Divider(
+            Divider(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(1.dp),
+                color = MaterialTheme.colorScheme.outline
+            )
+            CenteredBox(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(50.dp)
+                    .clickable(hasDub) { onClick?.let { it(AnimeTrack.DUB) } }
+            ) {
+                Image(
+                    painter = awarePainterResource(R.drawable.dub),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary.copy(if (hasDub) 1f else .2f)),
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .width(1.dp),
-                    color = MaterialTheme.colorScheme.outline
+                        .size(25.dp)
                 )
-                CenteredBox(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(50.dp)
-                        .clickable { onClick?.let { it(AnimeTrack.DUB) } }
-                ) {
-                    Image(
-                        painter = awarePainterResource(R.drawable.dub),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.tertiary),
-                        modifier = Modifier
-                            .size(25.dp)
-                    )
-                }
             }
         }
     }

@@ -45,6 +45,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun EpisodeDownloadSheet(
     show: Boolean,
+    dubCount: Int = 0,
     episodeList: List<AnimeEpisodeDetail>?,
     onDownloadEpisode: (AnimeEpisodeDetail, AnimeTrack) -> Unit,
     onHide: () -> Unit,
@@ -130,7 +131,8 @@ fun EpisodeDownloadSheet(
                     items(range) {
                         val episode = episodeList[it + startRange]
                         EpisodeDownloadContentView(
-                            details = episode
+                            details = episode,
+                            hasDub = episode.episode <= dubCount,
                         ) { track ->
                             onDownloadEpisode(episode, track)
                         }

@@ -3,7 +3,6 @@ package com.redline.anistalker.activities
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
@@ -42,7 +41,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -165,9 +163,10 @@ class AnimeDetailActivity : AniActivity() {
 
                     EpisodeDownloadSheet(
                         show = showDownloadScreen,
+                        dubCount = anime?.episodes?.dub ?: 0,
                         episodeList = episodeList,
-                        onDownloadEpisode = { anime, track ->
-                            viewModel.downloadEpisodes(anime, track)
+                        onDownloadEpisode = { source, track ->
+                            viewModel.downloadEpisodes(source, track)
                         }
                     ) {
                         showDownloadScreen = false

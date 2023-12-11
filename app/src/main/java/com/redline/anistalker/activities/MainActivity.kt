@@ -2,7 +2,6 @@ package com.redline.anistalker.activities
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -19,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
@@ -42,7 +43,6 @@ import com.redline.anistalker.R
 import com.redline.anistalker.activities.screens.HomeScreen
 import com.redline.anistalker.activities.screens.LibraryScreen
 import com.redline.anistalker.activities.screens.MediaScreen
-import com.redline.anistalker.activities.screens.SearchScreen
 import com.redline.anistalker.ui.components.AniNavBar
 import com.redline.anistalker.ui.components.NavItem
 import com.redline.anistalker.ui.theme.AniStalkerTheme
@@ -50,12 +50,11 @@ import com.redline.anistalker.ui.theme.aniStalkerColorScheme
 import com.redline.anistalker.viewModels.DownloadViewModel
 import com.redline.anistalker.viewModels.HomeViewModel
 import com.redline.anistalker.viewModels.LibraryViewModel
-import com.redline.anistalker.viewModels.SearchViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : AniActivity() {
     private val screenHome = "SCREEN_HOME"
-    private val screenSearch = "SCREEN_SEARCH"
+    private val screenManga = "SCREEN_MANGA"
     private val screenLibrary = "SCREEN_LIBRARY"
     private val screenDownload = "SCREEN_DOWNLOADS"
 
@@ -66,8 +65,8 @@ class MainActivity : AniActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         val navItems = arrayOf(
-            NavItem(R.drawable.home, R.drawable.home, "Home"),
-            NavItem(R.drawable.search, R.drawable.search, "Search"),
+            NavItem(R.drawable.home, R.drawable.home, "Anime"),
+            NavItem(R.drawable.read, R.drawable.read, "Manga"),
             NavItem(R.drawable.library, R.drawable.library, "Library"),
             NavItem(R.drawable.downloads, R.drawable.downloads, "Media"),
         )
@@ -91,7 +90,7 @@ class MainActivity : AniActivity() {
             val onNavChange = remember {
                     NavController.OnDestinationChangedListener { _, destination, _ ->
                         selectedNavBar = when (destination.route) {
-                            screenSearch -> 1
+                            screenManga -> 1
                             screenLibrary -> 2
                             screenDownload -> 3
                             else -> 0
@@ -117,7 +116,7 @@ class MainActivity : AniActivity() {
                                 if (selectedNavBar != it) {
                                     val route = when (it) {
                                         0 -> screenHome
-                                        1 -> screenSearch
+                                        1 -> screenManga
                                         2 -> screenLibrary
                                         3 -> screenDownload
                                         else -> screenHome
@@ -140,7 +139,7 @@ class MainActivity : AniActivity() {
                                 startDestination = screenHome
                             ) {
                                 homeScreenComposable()
-                                searchScreenComposable()
+                                mangaScreenComposable()
                                 libraryScreenComposable()
                                 mediaScreenComposable()
                             }
@@ -215,26 +214,21 @@ class MainActivity : AniActivity() {
         )
     }
 
-    private fun NavGraphBuilder.searchScreenComposable() = composable(
-        route = screenSearch,
+    private fun NavGraphBuilder.mangaScreenComposable() = composable(
+        route = screenManga,
         enterTransition = { slideInVertically { it / 2 } + fadeIn() },
         exitTransition = { fadeOut() }
     ) {
-        val viewModel by viewModels<SearchViewModel>()
-
-        val animeContent by viewModel.animeList.collectAsState()
-        val loadingError by viewModel.error.collectAsState()
-
-        SearchScreen(
-            animeContent = animeContent,
-            loadingError = loadingError?.second,
-            onLoadNextPage = { viewModel.loadNextAnimePage() },
-            onAnimeClicked = { openAnimeDetails(it) },
-        ) { query, animeFilter ->
-            if (query.isEmpty())
-                viewModel.filter(animeFilter)
-            else
-                viewModel.search(query, animeFilter)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            Text(
+                text = "Coming Soon!",
+                color = Color.White.copy(.5f),
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 

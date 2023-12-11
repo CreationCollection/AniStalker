@@ -88,7 +88,9 @@ class HomeViewModel() : ViewModel() {
         if (browsingPage != null && !browsingPage!!.isLoading() && browsingPage!!.hasNextPage()) {
             fillEmptyAnime { _browseList }
             browsingJob.launch {
-                fillAnime(browsingPage!!.nextPage()) { _browseList }
+                try {
+                    fillAnime(browsingPage!!.nextPage()) { _browseList }
+                } catch (ex: Exception) { ex.printStackTrace() }
             }
         }
     }

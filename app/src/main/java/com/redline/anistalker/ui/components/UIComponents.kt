@@ -6,9 +6,13 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -62,6 +66,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
@@ -116,7 +121,8 @@ fun AniNavBar(
 
                 val fraction by animateFloatAsState(
                     targetValue = if (active) 1f else 0f,
-                    label = "fraction"
+                    label = "fraction",
+                    animationSpec = tween(easing = LinearEasing)
                 )
 
                 val bgColor = lerp(Color.Transparent, chipColor, fraction)
@@ -126,6 +132,8 @@ fun AniNavBar(
                 val icon = awarePainterResource(
                     resId = if (active) item.selectedIcon else item.unselectedIcon
                 )
+
+                val animationSpec = tween<IntSize>(200, easing = LinearEasing)
 
                 Row(
                     horizontalArrangement = Arrangement.Center,
@@ -145,7 +153,11 @@ fun AniNavBar(
                         modifier = Modifier
                             .size(imgSize)
                     )
-                    AnimatedVisibility(visible = active) {
+                    AnimatedVisibility(
+                        visible = active,
+                        enter = expandHorizontally(animationSpec),
+                        exit = shrinkHorizontally(animationSpec)
+                    ) {
                         Text(
                             text = item.label,
                             color = fgColor,

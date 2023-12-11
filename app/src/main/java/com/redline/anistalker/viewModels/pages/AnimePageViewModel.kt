@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.redline.anistalker.managements.DownloadManager
 import com.redline.anistalker.managements.StalkMedia
 import com.redline.anistalker.managements.UserData
+import com.redline.anistalker.models.AniError
 import com.redline.anistalker.models.AniResult
 import com.redline.anistalker.models.Anime
 import com.redline.anistalker.models.AnimeEpisodeDetail
@@ -18,6 +19,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 class AnimePageViewModel(
     private val application: Application,
@@ -73,14 +75,26 @@ class AnimePageViewModel(
             jobScope = CoroutineScope(Dispatchers.IO)
             jobScope.launch {
                 currentAnimeId = animeId
-                val result = StalkMedia.Anime.getAnimeDetail(animeId)
-                _anime.value = result
-                launch { _images.value = StalkMedia.Anime.getAnimeImageList(result.id) }
-                launch { updateWatchlist() }
-                launch {
-                    _episodeList.value = StalkMedia.Anime.getAnimeEpisodes(animeId)
+                try {
+                    val result = StalkMedia.Anime.getAnimeDetail(animeId)
+                    _anime.value = result
+                    launch {
+                        try { _images.value = StalkMedia.Anime.getAnimeImageList(result.id) }
+                        catch (ex: Exception) { ex.printStackTrace() }
+                    }
+                    launch { updateWatchlist() }
+                    launch {
+                        try { _episodeList.value = StalkMedia.Anime.getAnimeEpisodes(animeId) }
+                        catch (ex: Exception) { ex.printStackTrace() }
+                    }
+                    _currentAnime.value = animeId == UserData.currentAnime.value?.id?.zoroId
                 }
-                _currentAnime.value = animeId == UserData.currentAnime.value?.id?.zoroId
+                catch (err: AniError) {
+                    err.printStackTrace()
+                }
+                catch (ex: IOException) {
+                    ex.printStackTrace()
+                }
             }
         }
     }

@@ -16,3 +16,4 @@ local.properties
 /.idea/kotlinScripting.xml
 /.idea/inspectionProfiles/Project_Default.xml
 /.idea/vcs.xml
+/app/release/

@@ -163,6 +163,7 @@ class DownloadService : Service() {
 
             checkHandle.postDelayed({
                 if (downloadingFlow.isEmpty() && downloadProcessingFlow.isEmpty()) stopSelf()
+                else nfManager.cancel(1)
             }, 2000)
         }
 

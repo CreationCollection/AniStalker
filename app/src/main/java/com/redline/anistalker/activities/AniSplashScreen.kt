@@ -4,9 +4,12 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -22,11 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,10 +38,11 @@ import com.redline.anistalker.R
 import com.redline.anistalker.managements.AniInitializer
 import com.redline.anistalker.ui.theme.AniStalkerTheme
 import com.redline.anistalker.ui.theme.aniStalkerColorScheme
-import kotlinx.coroutines.flow.MutableStateFlow
 
 @SuppressLint("CustomSplashScreen")
 class AniSplashScreen : ComponentActivity() {
+    private var nfPermit: ActivityResultLauncher<String>? = null
+    private var sPermit: ActivityResultLauncher<Intent>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,31 +50,21 @@ class AniSplashScreen : ComponentActivity() {
         val handler = Handler(mainLooper)
         val startTime = System.currentTimeMillis()
 
-        val permissionGranted = MutableStateFlow(hasPermissions())
-        if (permissionGranted.value) AniInitializer.initializeApp(application)
+        nfPermit = registerForActivityResult(ActivityResultContracts.RequestPermission()) { recreate() }
+        sPermit = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { recreate() }
 
-        val permissionRequester =
-            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { p ->
-                permissionGranted.value = p.all { it.value }
-            }
+        AniInitializer.onInitialized {
+            handler.postDelayed({
+                startActivity(
+                    Intent(this, MainActivity::class.java)
+                )
+                finish()
+            }, 1000 - (System.currentTimeMillis() - startTime).coerceAtMost(1000))
+        }
 
         setContent {
-            var callbackAdded by rememberSaveable {
-                mutableStateOf(false)
-            }
-            if (!callbackAdded) {
-                AniInitializer.onInitialized {
-                    handler.postDelayed({
-                        startActivity(
-                            Intent(this, MainActivity::class.java)
-                        )
-                        finish()
-                    }, 1000 - (System.currentTimeMillis() - startTime).coerceAtMost(1000))
-                }
-                callbackAdded = true
-            }
-
-            val permissionStatus by permissionGranted.collectAsState()
+            if (hasNotificationPermission() && hasStoragePermission())
+                AniInitializer.initializeApp(application)
 
             AniStalkerTheme {
                 Surface(
@@ -105,17 +94,29 @@ class AniSplashScreen : ComponentActivity() {
                             )
 
                             Spacer(modifier = Modifier.size(20.dp))
-                            if (!permissionStatus) Button(
-                                onClick = {
-                                    requestPermissions(
-                                        permissionRequester,
-                                        permissionGranted
+
+                            if (!hasNotificationPermission()) {
+                                Button(
+                                    onClick = {
+                                        requestNotificationPermission()
+                                    },
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Allow Notification Permission"
                                     )
+                                }
+                                Spacer(modifier = Modifier.size(10.dp))
+                            }
+
+                            if (!hasStoragePermission()) Button(
+                                onClick = {
+                                    requestStoragePermission()
                                 },
                                 shape = RoundedCornerShape(6.dp)
                             ) {
                                 Text(
-                                    text = "Allow Permissions"
+                                    text = "Allow Storage Permission"
                                 )
                             }
                         }
@@ -125,40 +126,32 @@ class AniSplashScreen : ComponentActivity() {
         }
     }
 
-    private fun requestPermissions(
-        request: ActivityResultLauncher<Array<String>>,
-        state: MutableStateFlow<Boolean>
-    ) {
-        val permissions = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasStoragePermission()) {
-            permissions.add(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission()) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-
-        if (permissions.isEmpty()) {
-            AniInitializer.initializeApp(application)
-            state.value = true
-        } else request.launch(permissions.toTypedArray())
-    }
-
-    private fun hasPermissions() = hasStoragePermission() && hasNotificationPermission()
-
-    private fun hasStoragePermission(): Boolean {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.MANAGE_EXTERNAL_STORAGE
-                ) == PackageManager.PERMISSION_GRANTED
-    }
-
     private fun hasNotificationPermission(): Boolean {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
                 ContextCompat.checkSelfPermission(
                     this,
                     Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun hasStoragePermission() =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+
+            if (!hasNotificationPermission()) {
+                nfPermit?.launch(permission)
+            }
+        }
+    }
+
+    private fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            sPermit?.launch(
+                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName"))
+            )
+        }
     }
 }

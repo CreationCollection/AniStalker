@@ -8,7 +8,7 @@ import kotlinx.coroutines.launch
 object AniInitializer {
     private var initializing = false
     private var initialized = false
-    private val completedEvent: MutableList<() -> Unit> = mutableListOf()
+    private var completedEvent: (() -> Unit)? = null
     private val scope = CoroutineScope(Dispatchers.Main)
 
     fun initializeApp(application: Application) {
@@ -22,13 +22,15 @@ object AniInitializer {
 
             initialized = true
             initializing = false
-            completedEvent.forEach { it() }
-            completedEvent.clear()
+            if (completedEvent != null) {
+                completedEvent?.invoke()
+                completedEvent = null
+            }
         }
     }
 
     fun onInitialized(callback: () -> Unit) {
-        if (!initialized) completedEvent.add(callback)
+        if (!initialized) completedEvent= callback
         else callback()
     }
 }
